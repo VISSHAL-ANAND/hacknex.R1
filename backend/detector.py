@@ -339,6 +339,23 @@ def _entity_consistency(events: list[SecurityEvent]) -> float:
     return round(sum(scores) / len(scores), 2)
 
 
+def _ordered_stage_path(stage_events: dict[str, list[SecurityEvent]]) -> list[SecurityEvent]:
+    """Return one temporally ordered representative from each mandatory stage."""
+    first = sorted(stage_events[REQUIRED_STAGES[0]], key=lambda e: e.timestamp)
+    second = sorted(stage_events[REQUIRED_STAGES[1]], key=lambda e: e.timestamp)
+    third = sorted(stage_events[REQUIRED_STAGES[2]], key=lambda e: e.timestamp)
+
+    for identity_event in first:
+        for sensitive_event in second:
+            if sensitive_event.timestamp < identity_event.timestamp:
+                continue
+            for exfil_event in third:
+                if exfil_event.timestamp < sensitive_event.timestamp:
+                    continue
+                return [identity_event, sensitive_event, exfil_event]
+    return []
+
+
 def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
     ordered = sorted(events, key=lambda e: e.timestamp)
     scored = [(event, _event_score(event)) for event in ordered]
@@ -544,11 +561,8 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
         if _cross_user_device_conflict(chain, ordered):
             continue
 
-        first_stage_times = [
-            min((e.timestamp for e in stage_events[name]), default=None)
-            for name in REQUIRED_STAGES
-        ]
-        temporal_ok = all(t is not None for t in first_stage_times) and first_stage_times == sorted(first_stage_times)
+        ordered_stage_path = _ordered_stage_path(stage_events)
+        temporal_ok = len(ordered_stage_path) == len(REQUIRED_STAGES)
         temporal_score = 1.0 if temporal_ok else 0.35
 
         entity_score = _entity_consistency(chain)
