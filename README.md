@@ -217,6 +217,17 @@ docs/
   phase8-cert-raw.yml
 ```
 
+## Final judge runbook
+
+The final presentation flow, scenario order, safe benchmark wording, judge questions and pre-demo checklist are documented in `docs/JUDGE_RUNBOOK.md`.
+
+The recommended demo sequence is:
+
+```
+Run Judge Demo → prove evidence → Run Clean → prove suppression
+→ partial/entity/authorization adversarial cases → explain novelty
+```
+
 ## Run locally
 
 Python 3.10+ is recommended.
