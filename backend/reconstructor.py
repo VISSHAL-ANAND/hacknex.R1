@@ -5,7 +5,7 @@ from datetime import timedelta
 
 from .models import AttackReconstruction, ReconstructionEdge, SecurityEvent
 
-CHAIN_WINDOW = timedelta(minutes=30)
+CHAIN_WINDOW = timedelta(minutes=30)\nDRIFT_RECONSTRUCTION_WINDOW = timedelta(minutes=90)
 
 STAGE_IDENTITY = "Initial Access / Identity Anomaly"
 STAGE_SENSITIVE = "Sensitive Data Access"
@@ -68,7 +68,7 @@ def _edge_score(a: SecurityEvent, b: SecurityEvent) -> tuple[float, list[str]]:
         return 0.0, ["Target event occurs before source event."]
 
     gap = b.timestamp - a.timestamp
-    if gap > CHAIN_WINDOW:
+    if gap > DRIFT_RECONSTRUCTION_WINDOW:
         return 0.0, ["Events exceed the reconstruction window."]
 
     if not _compatible(a, b):
@@ -100,7 +100,7 @@ def _edge_score(a: SecurityEvent, b: SecurityEvent) -> tuple[float, list[str]]:
         score += 0.10
         reasons.append("Behavior baseline independently supports the transition.")
 
-    decay = max(0.0, 1.0 - (gap.total_seconds() / CHAIN_WINDOW.total_seconds()))
+    decay = max(0.0, 1.0 - (gap.total_seconds() / DRIFT_RECONSTRUCTION_WINDOW.total_seconds()))
     score += 0.10 * decay
     return round(min(1.0, score), 2), reasons
 
