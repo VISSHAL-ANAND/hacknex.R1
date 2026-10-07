@@ -520,7 +520,7 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
         correlated_incidents=len(incidents),
         incidents=incidents,
         campaign_hypotheses=campaign_hypotheses,
-        suppressed=len(incidents) == 0,
+        suppressed=len(incidents) == 0 and not campaign_hypotheses,
     )
 
 
