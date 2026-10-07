@@ -97,6 +97,37 @@ def benign_usb_lookalike(base):
     return events
 
 
+def clock_drift_attack(base):
+    events = clone(base)
+    from datetime import timedelta
+    for idx in (3, 4):
+        events[idx] = events[idx].model_copy(update={"timestamp": events[idx].timestamp + timedelta(minutes=4)})
+    return events
+
+def interleaved_attack(base):
+    events = clone(base)
+    from datetime import timedelta
+    for i in (2, 3, 4):
+        events.append(SecurityEvent(event_id=f"INTERLEAVE-{i}", timestamp=events[1].timestamp + timedelta(minutes=i), event_type="process_start", user="bob", device="DEV-88", src_ip="203.0.113.88", application="browser", source="endpoint", severity="info", metadata={}))
+    return events
+
+def duplicate_attack(base):
+    events = clone(base)
+    return events + [events[1].model_copy(update={"event_id": "DUP-LOGIN"}), events[2].model_copy(update={"event_id": "DUP-FILE"})]
+
+def cross_user_decoy_attack(base):
+    events = clone(base)
+    from datetime import timedelta
+    events.append(SecurityEvent(event_id="DECOY-USER-001", timestamp=events[2].timestamp + timedelta(seconds=10), event_type="file_access", user="eve", device="DEV-77", src_ip="198.51.100.77", application="FileServer", resource="/finance/realistic.pdf", action="read", source="file_server", severity="high", metadata={"sensitive": True}))
+    return events
+
+def noisy_benign_backup(base):
+    events = clone(base)
+    from datetime import timedelta
+    for i in range(12):
+        events.append(SecurityEvent(event_id=f"BACKUP-NOISE-{i}", timestamp=base[0].timestamp + timedelta(minutes=i + 1), event_type="process_start", user="backup-admin", device="BACKUP-01", src_ip="10.0.0.20", application="BackupAgent", source="endpoint", severity="info", metadata={"scheduled": True}))
+    return events
+
 def build_cases():
     scenarios = load_scenarios()
     attack = scenarios["full_attack"]
@@ -116,6 +147,11 @@ def build_cases():
         ("benign_backup", scenarios["benign_backup"], False, "suppressed"),
         ("legitimate_sensitive_access", scenarios["legitimate_sensitive_access"], False, "suppressed"),
         ("partial_attack", scenarios["partial_attack"], True, "hypothesis"),
+        ("clock_drift_attack", clock_drift_attack(attack), True, "validated"),
+        ("interleaved_attack", interleaved_attack(attack), True, "validated"),
+        ("duplicate_attack", duplicate_attack(attack), True, "validated"),
+        ("cross_user_decoy_attack", cross_user_decoy_attack(attack), True, "validated"),
+        ("noisy_benign_backup", noisy_benign_backup(scenarios["benign_backup"]), False, "suppressed"),
     ]
     return cases
 
@@ -205,7 +241,7 @@ def test_phase11_adversarial_benchmark():
     # deterministic and produce one of the defined dispositions. Quality
     # thresholds are intentionally NOT asserted yet; the first run measures
     # where the current detector breaks.
-    assert len(observations) == 15
+    assert len(observations) == 20
     assert all(item["actual_disposition"] in {"validated", "hypothesis", "watchlist", "suppressed"} for item in observations)
     assert all(item["passed_expected_disposition"] for item in observations), observations
     assert tp + fp + fn + tn == len(cases)
