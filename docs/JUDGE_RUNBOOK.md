@@ -161,7 +161,7 @@ IP alone is not identity. Entity consistency and cross-user/device conflict chec
 
 ### “How do you avoid looking only at your own attack?”
 
-Phase 13 explicitly tests transformed/unseen structures, benign interleaving, heavy decoys, missing telemetry, simultaneous campaigns and large benign haystacks.
+Phase 13 constructs malicious campaigns independently from the known demo fixture. It uses different users, devices, applications, resources, timing and session patterns, plus decoy and simultaneous-campaign cases. The benchmark is intentionally limited to the declared removable-media evidence contract rather than claiming universal unseen-attack recall.
 
 ### “Is this production-grade recall?”
 
