@@ -18,6 +18,9 @@ from .models import (
 )
 
 CHAIN_WINDOW = timedelta(minutes=30)
+# Long/slow attacks need a bounded adaptive horizon, but this is deliberately
+# finite so the detector cannot correlate an entire day's telemetry.
+DRIFT_CHAIN_WINDOW = timedelta(minutes=90)
 CANDIDATE_THRESHOLD = 0.10
 STRONG_SIGNAL_THRESHOLD = 0.25
 REQUIRED_STAGES = (
@@ -71,13 +74,8 @@ def _event_score(event: SecurityEvent) -> float:
         elif copied_bytes >= 250_000_000:
             score += 0.20
 
-    # Behavior anomaly is supporting context, not campaign confidence.
-    # The maximum contribution is deliberately small so a single unusual
-    # event cannot become a validated incident by itself.
     behavior_score = float(event.metadata.get("behavior_score", 0.0) or 0.0)
     score += min(0.15, 0.15 * max(0.0, behavior_score))
-
-    # Severity is context, not the detector.
     score += {"critical": 0.05, "high": 0.04, "medium": 0.02}.get(event.severity, 0.0)
     return min(1.0, score)
 
@@ -89,7 +87,7 @@ def _cluster(events: list[SecurityEvent]) -> list[list[SecurityEvent]]:
     for event in events:
         placed = False
         for cluster in clusters:
-            if event.timestamp - cluster[0].timestamp > CHAIN_WINDOW:
+            if event.timestamp - cluster[0].timestamp > DRIFT_CHAIN_WINDOW:
                 continue
             if any(
                 event.timestamp >= existing.timestamp
@@ -104,7 +102,6 @@ def _cluster(events: list[SecurityEvent]) -> list[list[SecurityEvent]]:
             clusters.append([event])
 
     return [sorted(cluster, key=lambda e: e.timestamp) for cluster in clusters]
-
 
 def _find(cluster: list[SecurityEvent], predicate: Callable[[SecurityEvent], bool]) -> SecurityEvent | None:
     return next((e for e in cluster if predicate(e)), None)
