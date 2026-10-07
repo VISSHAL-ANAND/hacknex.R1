@@ -108,14 +108,14 @@ def build_cases():
         ("reversed_order", scenarios["reversed_order"], False, "suppressed"),
         ("mismatched_entities", scenarios["mismatched_entities"], False, "suppressed"),
         ("shared_ip_collision", scenarios["shared_ip_collision"], False, "suppressed"),
-        ("missing_telemetry", missing_telemetry(attack), False, "hypothesis"),
+        ("missing_telemetry", missing_telemetry(attack), True, "hypothesis"),
         ("decoy_attack", decoy_attack(attack), True, "validated"),
         ("out_of_order_input", out_of_order_attack(attack), True, "validated"),
         ("authorized_transfer", scenarios["authorized_transfer"], False, "suppressed"),
         ("benign_usb_lookalike", benign_usb_lookalike(attack), False, "suppressed"),
         ("benign_backup", scenarios["benign_backup"], False, "suppressed"),
         ("legitimate_sensitive_access", scenarios["legitimate_sensitive_access"], False, "suppressed"),
-        ("partial_attack", scenarios["partial_attack"], False, "hypothesis"),
+        ("partial_attack", scenarios["partial_attack"], True, "hypothesis"),
     ]
     return cases
 
