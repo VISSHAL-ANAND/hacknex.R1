@@ -53,7 +53,7 @@ def test_phase13_generalization_gate():
  ]
  obs=[]
  for name,es,expected,mal in cases:
-  r=analyze(es); obs.append({"case":name,"expected":expected,"actual":disp(r),"malicious":mal,"incidents":len(r.correlated_incidents),"hypotheses":len(r.campaign_hypotheses)})
+  r=analyze(es); obs.append({"case":name,"expected":expected,"actual":disp(r),"malicious":mal,"incidents":r.correlated_incidents,"hypotheses":len(r.campaign_hypotheses)})
  tp=sum(o["malicious"] and o["actual"]=="validated" for o in obs); fp=sum((not o["malicious"]) and o["actual"]=="validated" for o in obs)
  recall=tp/sum(o["malicious"] for o in obs); fpr=fp/sum(not o["malicious"] for o in obs)
  report={"experiment":"Phase 13 unseen/generalization benchmark","metrics":{"cases":len(obs),"validated_recall":round(recall,4),"validated_fpr":round(fpr,4)},"observations":obs}
