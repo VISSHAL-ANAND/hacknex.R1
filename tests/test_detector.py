@@ -75,6 +75,7 @@ def test_reversed_attack_order_is_not_validated():
     result = analyze(load_scenarios()["reversed_order"])
     assert result.correlated_incidents == 0
     assert result.watchlist_candidates >= 1
+    assert result.campaign_hypotheses == []
     assert result.suppressed is True
 
 
@@ -82,7 +83,8 @@ def test_slow_attack_outside_window_is_not_validated():
     result = analyze(load_scenarios()["slow_attack"])
     assert result.correlated_incidents == 0
     assert result.watchlist_candidates == 1
-    assert result.suppressed is True
+    assert result.campaign_hypotheses
+    assert result.suppressed is False
 
 
 def test_large_benign_backup_does_not_equal_exfiltration():
