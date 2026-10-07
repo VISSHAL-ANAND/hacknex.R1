@@ -128,6 +128,60 @@ def _is_removable_exfil(event: SecurityEvent) -> bool:
     )
 
 
+def _stage_event_matches(stage: str, event: SecurityEvent) -> bool:
+    if stage == REQUIRED_STAGES[0]:
+        return (
+            (event.event_type == "login" and bool(event.metadata.get("unusual_ip")))
+            or (
+                event.event_type == "device_enroll"
+                and bool(event.metadata.get("new_device"))
+            )
+            or bool(event.metadata.get("new_device"))
+        )
+    if stage == REQUIRED_STAGES[1]:
+        return event.event_type == "file_access" and bool(event.metadata.get("sensitive"))
+    if stage == REQUIRED_STAGES[2]:
+        return event.event_type == "usb_mount" or _is_removable_exfil(event)
+    return False
+
+
+def _partial_hypothesis_is_supported(
+    missing_stage: str,
+    partial_chain: list[SecurityEvent],
+    all_events: list[SecurityEvent],
+) -> bool:
+    missing_candidates = [
+        event for event in all_events if _stage_event_matches(missing_stage, event)
+    ]
+    for candidate in missing_candidates:
+        for observed in partial_chain:
+            shared = {
+                value
+                for value in (
+                    candidate.user,
+                    candidate.device,
+                    candidate.src_ip,
+                    candidate.session_id,
+                )
+                if value
+            } & {
+                value
+                for value in (
+                    observed.user,
+                    observed.device,
+                    observed.src_ip,
+                    observed.session_id,
+                )
+                if value
+            }
+            if shared:
+                # If the missing stage exists for this identity context, do not
+                # manufacture an "unobserved" hypothesis. This preserves the
+                # fixed-window and entity-conflict safeguards.
+                return False
+    return True
+
+
 def _context_is_authorized(event: SecurityEvent) -> bool:
     return bool(
         event.metadata.get("approved_transfer")
@@ -347,8 +401,15 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
                     for name in REQUIRED_STAGES
                     if stage_events[name]
                 ]
-                partial_temporal_ok = first_stage_times == sorted(first_stage_times)
+                partial_temporal_ok = all(
+                    left <= right
+                    for left, right in zip(first_stage_times, first_stage_times[1:])
+                )
                 partial_entity_score = _entity_consistency(partial_chain)
+                missing_stage_supported = all(
+                    _partial_hypothesis_is_supported(missing_stage, partial_chain, ordered)
+                    for missing_stage in missing
+                )
                 stage_quality = sum(stage.confidence for stage in stages) / len(stages)
                 partial_confidence = round(
                     min(
@@ -359,7 +420,12 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
                     ),
                     2,
                 )
-                if partial_temporal_ok and partial_entity_score >= 0.60 and partial_confidence >= 0.65:
+                if (
+                    partial_temporal_ok
+                    and partial_entity_score >= 0.60
+                    and partial_confidence >= 0.65
+                    and missing_stage_supported
+                ):
                     campaign_hypotheses.append(
                         CampaignHypothesis(
                             hypothesis_id=f"HYP-{partial_chain[0].event_id}",
