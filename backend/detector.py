@@ -239,12 +239,21 @@ def _cross_user_device_conflict(chain: list[SecurityEvent], all_events: list[Sec
         for event in all_events
     )
 
-def _context_is_authorized(event: SecurityEvent) -> bool:
-    return bool(
-        event.metadata.get("approved_transfer")
-        or event.metadata.get("authorized_activity")
-        or event.metadata.get("sanctioned_usb")
+AUTHORIZATION_SIGNALS = ("approved_transfer", "authorized_activity", "sanctioned_usb")
+
+
+def _authorization_signal_count(events: list[SecurityEvent]) -> int:
+    """Count independent authorization signals, not merely authorized events."""
+    return sum(
+        1
+        for event in events
+        for signal in AUTHORIZATION_SIGNALS
+        if bool(event.metadata.get(signal))
     )
+
+
+def _context_is_authorized(event: SecurityEvent) -> bool:
+    return any(bool(event.metadata.get(signal)) for signal in AUTHORIZATION_SIGNALS)
 
 
 def _stage(
@@ -402,7 +411,7 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
         )
         usb = _find(cluster, lambda e: e.event_type == "usb_mount")
         copy = _find(cluster, _is_removable_exfil)
-        authorized_context = sum(1 for e in cluster if _context_is_authorized(e))
+        authorized_context = _authorization_signal_count(cluster)
 
         stage_events: dict[str, list[SecurityEvent]] = {
             REQUIRED_STAGES[0]: [e for e in (login, new_device) if e],

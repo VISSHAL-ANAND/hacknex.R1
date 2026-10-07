@@ -56,7 +56,7 @@ The LLM cannot create or validate an incident. Every validated stage must contai
 | Phase 10 | Evidence-coverage hardening | ✅ Complete |
 | Phase 11 | Adversarial precision/coverage benchmark | ✅ Complete |
 | Phase 12 | Confidence calibration + drift robustness | ✅ Complete |
-| Phase 13 | Unseen/generalization benchmark | ✅ Complete |
+| Phase 13 | Independent campaign generalization | ✅ Complete |
 | Phase 14 | Final robustness stress | ✅ Complete |
 | Phase 15 | Final release/judge gate | ✅ Complete |
 
