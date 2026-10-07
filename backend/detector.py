@@ -153,6 +153,12 @@ def _partial_hypothesis_is_supported(
     missing_candidates = [
         event for event in all_events if _stage_event_matches(missing_stage, event)
     ]
+    if not partial_chain:
+        return False
+
+    chain_start = min(event.timestamp for event in partial_chain)
+    chain_end = max(event.timestamp for event in partial_chain)
+
     for candidate in missing_candidates:
         for observed in partial_chain:
             shared = {
@@ -176,11 +182,41 @@ def _partial_hypothesis_is_supported(
             }
             if shared:
                 # If the missing stage exists for this identity context, do not
-                # manufacture an "unobserved" hypothesis. This preserves the
-                # fixed-window and entity-conflict safeguards.
+                # manufacture an "unobserved" hypothesis.
                 return False
+
+        # A conflicting stage inside the same reconstruction horizon is not
+        # missing telemetry. It is contradictory evidence belonging to another
+        # identity, so the partial hypothesis must remain silent.
+        if chain_start - CHAIN_WINDOW <= candidate.timestamp <= chain_end + CHAIN_WINDOW:
+            return False
+
     return True
 
+
+def _cluster_identity_contaminated(cluster: list[SecurityEvent]) -> bool:
+    """Reject clusters where a shared endpoint identity maps to multiple users."""
+    users_by_device: dict[str, set[str]] = defaultdict(set)
+    for event in cluster:
+        if event.device and event.user:
+            users_by_device[event.device].add(event.user)
+    return any(len(users) > 1 for users in users_by_device.values())
+
+
+def _cross_user_device_conflict(chain: list[SecurityEvent], all_events: list[SecurityEvent]) -> bool:
+    devices = {event.device for event in chain if event.device}
+    users = {event.user for event in chain if event.user}
+    if not devices:
+        return False
+    start = min(event.timestamp for event in chain)
+    end = max(event.timestamp for event in chain)
+    return any(
+        event.device in devices
+        and event.user
+        and event.user not in users
+        and start - CHAIN_WINDOW <= event.timestamp <= end + CHAIN_WINDOW
+        for event in all_events
+    )
 
 def _context_is_authorized(event: SecurityEvent) -> bool:
     return bool(
@@ -249,6 +285,21 @@ def _build_graph(event_chain: list[SecurityEvent]) -> tuple[list[GraphNode], lis
     return list(nodes.values()), list(edges.values())
 
 
+def _stage_identity_consistent(stage_events: dict[str, list[SecurityEvent]]) -> bool:
+    """Require mandatory stages to belong to one coherent user/device context."""
+    stage_events_flat = [
+        event
+        for events_for_stage in stage_events.values()
+        for event in events_for_stage
+    ]
+    if not stage_events_flat:
+        return False
+
+    users = {event.user for event in stage_events_flat if event.user}
+    devices = {event.device for event in stage_events_flat if event.device}
+    return len(users) <= 1 and len(devices) <= 1
+
+
 def _entity_consistency(events: list[SecurityEvent]) -> float:
     if len(events) < 2:
         return 0.0
@@ -295,6 +346,11 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
     evidence_events: set[str] = set()
 
     for cluster in clusters:
+        if _cluster_identity_contaminated(cluster):
+            # A shared device carrying multiple users cannot safely be treated
+            # as one campaign without stronger session-level attribution.
+            continue
+
         login = _find(
             cluster,
             lambda e: e.event_type == "login" and bool(e.metadata.get("unusual_ip")),
@@ -387,7 +443,6 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
 
         if len(stages) < 3:
             if len(stages) >= 2:
-                watchlist += 1
                 partial_chain = sorted(
                     {
                         event.event_id: event
@@ -406,6 +461,7 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
                     for left, right in zip(first_stage_times, first_stage_times[1:])
                 )
                 partial_entity_score = _entity_consistency(partial_chain)
+                stage_identity_consistent = _stage_identity_consistent(stage_events)
                 missing_stage_supported = all(
                     _partial_hypothesis_is_supported(missing_stage, partial_chain, ordered)
                     for missing_stage in missing
@@ -422,10 +478,16 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
                 )
                 if (
                     partial_temporal_ok
+                    and stage_identity_consistent
                     and partial_entity_score >= 0.60
                     and partial_confidence >= 0.65
                     and missing_stage_supported
+                    and not (
+                        authorized_context >= 2
+                        and any(event.event_type in {"usb_mount", "file_copy"} for event in partial_chain)
+                    )
                 ):
+                    watchlist += 1
                     campaign_hypotheses.append(
                         CampaignHypothesis(
                             hypothesis_id=f"HYP-{partial_chain[0].event_id}",
@@ -444,6 +506,11 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
                     )
             continue
 
+        if not _stage_identity_consistent(stage_events):
+            # A valid campaign must not be assembled by swapping users/devices
+            # between mandatory stages, even when the cluster shares one entity.
+            continue
+
         chain = sorted(
             {
                 event.event_id: event
@@ -452,6 +519,9 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
             }.values(),
             key=lambda e: e.timestamp,
         )
+
+        if _cross_user_device_conflict(chain, ordered):
+            continue
 
         first_stage_times = [
             min((e.timestamp for e in stage_events[name]), default=None)
@@ -491,7 +561,8 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
             or not reconstruction.selected_event_ids
             or reconstruction.reconstruction_score < 0.65
         ):
-            watchlist += 1
+            # Complete but contradictory chains are evidence failures, not weaker campaigns.
+            # Keep them silent rather than escalating known temporal/entity conflicts.
             continue
 
         evidence_events.update(e.event_id for e in chain)

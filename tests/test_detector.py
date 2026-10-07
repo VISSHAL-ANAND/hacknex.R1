@@ -74,7 +74,7 @@ def test_mismatched_entities_are_not_merged():
 def test_reversed_attack_order_is_not_validated():
     result = analyze(load_scenarios()["reversed_order"])
     assert result.correlated_incidents == 0
-    assert result.watchlist_candidates >= 1
+    assert result.watchlist_candidates == 0
     assert result.campaign_hypotheses == []
     assert result.suppressed is True
 
@@ -82,7 +82,7 @@ def test_reversed_attack_order_is_not_validated():
 def test_slow_attack_outside_window_is_not_validated():
     result = analyze(load_scenarios()["slow_attack"])
     assert result.correlated_incidents == 0
-    assert result.watchlist_candidates == 1
+    assert result.watchlist_candidates == 0
     assert result.campaign_hypotheses == []
     assert result.suppressed is True
 
@@ -173,7 +173,7 @@ def test_large_backup_with_sensitive_access_is_suppressed():
 def test_shared_ip_does_not_merge_different_users():
     result = analyze(load_scenarios()["shared_ip_collision"])
     assert result.correlated_incidents == 0
-    assert result.watchlist_candidates >= 1
+    assert result.watchlist_candidates == 0
     assert result.campaign_hypotheses == []
     assert result.suppressed is True
 
