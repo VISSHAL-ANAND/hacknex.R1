@@ -140,6 +140,58 @@ def large_benign_stream(base, count=5000):
 def benign_only_haystack(count=5000):
     return large_benign_stream([SecurityEvent(event_id="HAYSTACK-SEED", timestamp=__import__("datetime").datetime(2026, 1, 1, tzinfo=__import__("datetime").timezone.utc), event_type="process_start", user="service-0", device="HOST-0", src_ip="10.20.0.1", application="scheduled-service", source="endpoint", severity="info", metadata={})], count=count)
 
+def merge_events(*groups):
+    events = []
+    for group in groups:
+        events.extend(clone(group))
+    return sorted(events, key=lambda e: e.timestamp)
+
+def cross_entity_contamination(base):
+    events = clone(base)
+    from datetime import timedelta
+    for i, event in enumerate(events):
+        if i in (0, 2):
+            events.append(event.model_copy(update={
+                "event_id": f"CONTAM-{i}",
+                "user": "bob",
+                "device": "DEV-08",
+                "src_ip": "10.0.0.88",
+                "timestamp": event.timestamp + timedelta(seconds=15),
+            }))
+    return sorted(events, key=lambda e: e.timestamp)
+
+def simultaneous_campaigns(base):
+    first = clone(base)
+    second = clone(base)
+    second = [
+        e.model_copy(update={
+            "event_id": f"B-{e.event_id}",
+            "user": "bob",
+            "device": "DEV-08",
+            "src_ip": "10.0.0.88",
+        })
+        for e in second
+    ]
+    return merge_events(first, second)
+
+def shared_device_two_users(base):
+    events = clone(base)
+    return [
+        e.model_copy(update={
+            "event_id": f"SHARED-{e.event_id}",
+            "user": "bob" if i % 2 else e.user,
+            "device": "DEV-SHARED",
+        })
+        for i, e in enumerate(events)
+    ]
+
+def identity_stage_swap(base):
+    events = clone(base)
+    if len(events) >= 5:
+        events[2] = events[2].model_copy(update={"user": "bob", "device": "DEV-08", "src_ip": "10.0.0.88"})
+        events[4] = events[4].model_copy(update={"user": "alice", "device": "DEV-07", "src_ip": "10.0.0.7"})
+    return events
+
 def build_cases():
     scenarios = load_scenarios()
     attack = scenarios["full_attack"]
@@ -166,6 +218,10 @@ def build_cases():
         ("noisy_benign_backup", noisy_benign_backup(scenarios["benign_backup"]), False, "suppressed"),
         ("large_benign_haystack_attack", large_benign_stream(attack), True, "validated"),
         ("large_benign_haystack_only", benign_only_haystack(), False, "suppressed"),
+        ("cross_entity_contamination", cross_entity_contamination(attack), True, "validated"),
+        ("simultaneous_campaigns", simultaneous_campaigns(attack), True, "validated"),
+        ("shared_device_two_users", shared_device_two_users(attack), False, "suppressed"),
+        ("identity_stage_swap", identity_stage_swap(attack), False, "suppressed"),
     ]
     return cases
 
@@ -255,7 +311,7 @@ def test_phase11_adversarial_benchmark():
     # deterministic and produce one of the defined dispositions. Quality
     # thresholds are intentionally NOT asserted yet; the first run measures
     # where the current detector breaks.
-    assert len(observations) == 22
+    assert len(observations) == 26
     assert all(item["actual_disposition"] in {"validated", "hypothesis", "watchlist", "suppressed"} for item in observations)
     assert all(item["passed_expected_disposition"] for item in observations), observations
     assert tp + fp + fn + tn == len(cases)
