@@ -1,105 +1,115 @@
-# PRESENTATION — SIH 2026
+# SIH 2026 PRESENTATION
 ## HNX26PSI03 — AI-Powered Cyber Threat Intelligence
 
-> **8 SIH-style presentation slides + 1 Business Model Canvas slide**
+> **Presentation master document — 8 core SIH slides + 1 Business Model Canvas slide**
 >
-> **Core message:** Evidence first, explanation second.
-
-This document is the **slide-by-slide master content** for the final SIH presentation. It is intentionally detailed so the team can directly convert it into PowerPoint/Canva slides while keeping the story consistent with the implemented system and validated benchmarks.
+> **Core principle: Evidence first, explanation second.**
 
 ---
 
-# SLIDE 1 — TITLE / PROBLEM STATEMENT
+# SLIDE 1 — TITLE + PROBLEM STATEMENT
 
 ## AI-Powered Cyber Threat Intelligence
 
-### Problem Statement — HNX26PSI03
+### HNX26PSI03
 
-**Challenge**
+### The Problem
 
-Modern organizations generate massive volumes of heterogeneous security telemetry. Individual events such as unusual logins, sensitive-file access, USB activity or abnormal network connections are often ambiguous.
+Modern organizations generate huge volumes of heterogeneous security telemetry:
 
-The real challenge is:
+- Windows authentication and security logs
+- Sysmon process, file and network events
+- Endpoint/device activity
+- DNS / HTTP / network telemetry
+- File access and data movement
+- USB / removable-media activity
 
-> **How can we reconstruct a complete multi-stage cyber attack from fragmented security evidence while suppressing benign activity, identity collisions, missing telemetry, decoys and time drift?**
+The challenge is **not simply finding an unusual event**.
 
-### Our Solution
+The real problem is:
 
-**An evidence-first Cyber Threat Intelligence engine that converts heterogeneous security logs into validated attack campaigns.**
+> **How do we determine whether fragmented, individually weak events form one coherent multi-stage cyber attack while avoiding false incidents caused by benign activity, missing telemetry, identity ambiguity, time drift and decoys?**
 
-### Core principle
+### Our answer
 
-~~~text
+**An evidence-first Cyber Threat Intelligence engine that reconstructs attack campaigns from heterogeneous security logs and validates an incident only when the required evidence forms a coherent chain.**
+
+### Core message
+
+```
 Anomaly ≠ Incident
 
+Events
+  ↓
 Evidence
-   ↓
+  ↓
 Correlation
-   ↓
+  ↓
 Reconstruction
-   ↓
+  ↓
 Validated Incident
-~~~
+```
 
-### What we deliver
+### Demonstrated attack
 
-- Multi-source security-log ingestion
-- Canonical event normalization
-- Entity-aware correlation
-- Behavioral anomaly signals
-- Temporal attack reconstruction
-- Evidence coverage analysis
-- Campaign hypotheses for incomplete evidence
-- Deterministic incident validation
-- MITRE ATT&CK enrichment
-- Grounded AI investigation
-- Explainable response recommendations
-
-### Team Pitch
-
-> **We do not alert because one event looks suspicious. We validate an attack only when independent evidence forms a coherent, entity-consistent and temporally valid chain.**
+```
+Suspicious Login
+      ↓
+Sensitive File Access
+      ↓
+Removable Media
+      ↓
+Large Data Copy
+      ↓
+Validated Campaign
+```
 
 ---
 
-# SLIDE 2 — WHY EXISTING APPROACHES FAIL
+# SLIDE 2 — EXISTING GAP / WHY CURRENT APPROACHES FAIL
 
-## The Real Problem Is Correlation, Not Detection
+## Why Anomaly Detection Alone Is Not Enough
 
-### Traditional approach
+A traditional security pipeline often behaves like:
 
-~~~text
-Single anomaly
-     ↓
+```
+Suspicious event
+      ↓
 Threshold
-     ↓
+      ↓
 Alert
-~~~
+```
 
-This creates alert fatigue because legitimate activity can also look anomalous.
+This creates false positives because legitimate activity can also be unusual.
 
-### Failure modes we explicitly address
+### The six major gaps we target
 
-| Challenge | Why naive systems fail | Our response |
+| Existing weakness | Failure | Our approach |
 |---|---|---|
-| Huge clean logs | Look-elsewhere false positives | Evidence-gated reconstruction |
-| AND-gating | Recall collapses when one stage is missing | Campaign hypotheses |
-| Benign lookalikes | Legitimate backup/admin actions resemble attacks | Authorization + entity + evidence checks |
-| IP ambiguity | DHCP/NAT/shared IPs cause wrong attribution | Multi-entity resolution |
-| Clock drift | Fixed windows miss slow attacks | Bounded adaptive temporal reasoning |
-| Decoys | Earliest matching event may be unrelated | Ordered stage-path reconstruction |
-| Missing telemetry | Binary detector incorrectly says benign | Explicit missing-stage hypothesis |
-| Cross-user activity | Events from two users get stitched | Cross-identity/device conflict checks |
-| LLM hallucination | AI may invent unsupported conclusions | LLM only after deterministic validation |
+| Look-elsewhere problem | Huge clean logs produce accidental chains | Evidence-gated reconstruction |
+| AND-gating | Missing one stage collapses detection | Explicit Campaign Hypothesis |
+| Benign lookalikes | Admin/backup activity resembles attacks | Authorization + entity + evidence checks |
+| Identity stitching | IP/device sharing combines unrelated users | Multi-entity consistency + fail-closed rules |
+| Fixed time windows | Slow attacks are missed | Bounded adaptive temporal reasoning |
+| Decoys/noise | First matching event may be unrelated | Ordered causal stage-path reconstruction |
 
-### Key insight
+### Critical distinction
 
-> **A high anomaly score is not proof of an attack.**
+**Anomaly score answers:**
 
-The detector must establish:
+> “Is this event unusual?”
 
-~~~text
-WHO + WHAT + WHEN + WHERE + WHY THESE EVENTS BELONG TOGETHER
-~~~
+**Campaign confidence answers:**
+
+> “Do these exact events form one coherent attack?”
+
+**Validated incident answers:**
+
+> “Do we have enough evidence to call this an attack?”
+
+### Design philosophy
+
+> **We optimize for defensible incidents, not maximum alert volume.**
 
 ---
 
@@ -107,187 +117,181 @@ WHO + WHAT + WHEN + WHERE + WHY THESE EVENTS BELONG TOGETHER
 
 ## Evidence-First Attack Reconstruction
 
-### End-to-end architecture
+### End-to-end concept
 
-~~~text
-Security Logs
-     │
-     ├── Windows Security
-     ├── Windows XML
-     ├── Sysmon
-     └── Zeek
-     │
-     ▼
-Event Adapters
-     │
-     ▼
-Canonical SecurityEvent
-     │
-     ▼
+```
+Heterogeneous Security Logs
+          ↓
+Event Normalization
+          ↓
 Entity Resolution
-     │
-     ▼
+          ↓
 Behavior Signals
-     │
-     ▼
+          ↓
 Temporal + Entity Correlation
-     │
-     ▼
+          ↓
 Attack-Stage Reasoner
-     │
-     ▼
+          ↓
 Evidence Coverage
-     │
-     ▼
+          ↓
 Deterministic Reconstruction
-     │
-     ▼
+          ↓
 Campaign Confidence
-     │
-     ├───────────────┐
-     ▼               ▼
-Validated       Incomplete
-Incident        Campaign
-     │           Hypothesis
-     ▼
-ATT&CK + Response
-     │
-     ▼
-Grounded LLM Investigator
-~~~
+          ↓
+┌─────────────────────────────┐
+│ Complete coherent evidence? │
+└─────────────────────────────┘
+       ↓ YES             ↓ NO
+Validated Incident   Hypothesis / Silent
+       ↓
+Timeline + Evidence
++ ATT&CK + Response
+       ↓
+Optional Grounded LLM
+Investigation
+```
 
-### Demonstrated attack chain
+### Attack contract
 
-~~~text
-Suspicious Login
-      ↓
-New / Relevant Device Context
-      ↓
-Sensitive File Access
-      ↓
-Removable Media
-      ↓
-Large File Copy / Exfiltration
-      ↓
-Validated Campaign
-~~~
+For the demonstrated removable-media campaign:
 
-### Critical separation
+```
+Identity / Initial Access
+          ↓
+Sensitive Data Access
+          ↓
+Collection / Exfiltration
+```
 
-**Detection engine = deterministic security decision**
+A validated incident requires:
 
-**LLM = optional investigator/explainer**
+- mandatory stages
+- exact event evidence
+- valid temporal ordering
+- coherent entity context
+- sufficient reconstruction confidence
+- no blocking authorization/contradiction
 
-The LLM cannot create an incident or invent evidence.
+### Missing evidence
+
+```
+Complete chain → VALIDATED INCIDENT
+
+2 compatible stages → CAMPAIGN HYPOTHESIS
+
+Contradictory / unsupported → SILENT
+```
+
+This prevents the system from turning uncertainty into false certainty.
 
 ---
 
-# SLIDE 4 — TECHNICAL ARCHITECTURE & TECHNOLOGIES
+# SLIDE 4 — ARCHITECTURE + TECHNOLOGY STACK
 
-## Technology Stack
+## Technical Architecture
 
-### Backend
+```
+Windows Security ─┐
+Windows XML ──────┤
+Sysmon ───────────┤
+Zeek ─────────────┘
+        ↓
+    ADAPTERS
+        ↓
+Canonical SecurityEvent
+        ↓
+Entity Resolution
+        ↓
+Behavior Engine
+        ↓
+Temporal / Entity Correlation
+        ↓
+Stage Reasoner
+        ↓
+Evidence Graph / Reconstruction
+        ↓
+Incident Gate
+        ↓
+Dashboard + ATT&CK + Response
+        ↓
+Optional Grounded LLM
+```
 
-- **Python 3.11**
-- FastAPI / Python service layer
-- Pydantic-style structured models
-- Deterministic correlation and reconstruction engine
-- Pytest-based validation
+### Core technologies
 
-### Security telemetry
+**Backend**
+- Python 3.11
+- FastAPI/service layer
+- Structured security-event models
+- Deterministic correlation engine
+- Pytest regression framework
 
-- Windows Security Event Logs
-- Windows XML Event Logs
-- Sysmon
+**Security telemetry**
+- Windows Security 4624 / 4663
+- Windows XML
+- Sysmon 1 / 3 / 11 / 22
 - Zeek conn / HTTP / DNS
-- Public security datasets
-- CERT Insider Threat Test Dataset r4.2
 
-### Intelligence
-
+**Threat intelligence**
 - MITRE ATT&CK Enterprise
 - Pinned ATT&CK knowledge base
-- Demonstrated mappings:
-  - T1078 — Valid Accounts
-  - T1005 — Data from Local System
-  - T1052.001 — Exfiltration over USB
 
-### AI / LLM
-
-- OpenAI-compatible LLM investigator
+**AI**
+- Optional OpenAI-compatible LLM
 - Temperature 0
 - Structured output
-- Evidence-ID citations
-- Deterministic grounding validation
-- No synthetic fallback
+- Evidence-ID grounding validation
 
-### Frontend
-
-- Web dashboard
+**Frontend**
+- Interactive detection dashboard
 - Attack timeline
 - Entity graph
-- Stage evidence
-- Reconstruction details
-- ATT&CK intelligence
-- Response actions
-- Validation / suppression status
+- Evidence inspection
+- ATT&CK and response views
 
-### Core design decision
+### Important engineering decision
 
-> **No black-box ML model is required for the security-critical incident gate.**
-
-ML/LLM capabilities can provide bounded signals or explanations, while deterministic evidence requirements remain authoritative.
+> **The security-critical incident gate is deterministic. AI assists investigation; it does not decide whether an incident exists.**
 
 ---
 
-# SLIDE 5 — DATA SOURCES & DATA PIPELINE
+# SLIDE 5 — DATA SOURCES + MODELS
 
 ## Where Our Data Comes From
 
-We deliberately use different datasets for different validation purposes.
+We use different data sources for different validation purposes.
 
 ### 1. Versioned project scenarios
 
-Repository-controlled deterministic scenarios provide:
+Repository-controlled scenarios provide reproducible:
 
-- Full attack
-- Clean control
-- Partial attack
-- Reversed order
-- Slow attack
-- Mismatched entities
-- Authorized transfer
-- Benign backup
-- Decoys
-- Cross-user scenarios
-- Simultaneous campaigns
+- full attacks
+- clean controls
+- partial evidence
+- reversed order
+- slow attacks
+- mismatched entities
+- authorized transfers
+- benign backups
+- decoys
+- cross-user cases
+- simultaneous campaigns
 
-**Purpose:** reproducible demo + regression testing.
+**Purpose:** demo + regression + judge reproducibility.
 
 ### 2. Public security telemetry
 
-Phase 8 public validation used Splunk Attack Data-derived telemetry.
-
-Result:
+Phase 8 heterogeneous-ingestion validation:
 
 - **6,208 records**
 - **0 parse errors**
 - **0 normalization errors**
 
-**Purpose:** validate heterogeneous ingestion and normalization.
+**Purpose:** validate adapters and canonical normalization.
 
 ### 3. CERT Insider Threat Test Dataset r4.2
 
-Raw benchmark sources:
-
-~~~text
-logon.csv
-device.csv
-file.csv
-insiders.csv
-~~~
-
-Rows evaluated:
+Raw benchmark inputs:
 
 | File | Rows |
 |---|---:|
@@ -296,121 +300,135 @@ Rows evaluated:
 | file.csv | 445,581 |
 | insiders.csv | 191 |
 
-Official answer-key evaluation contained **70 malicious scenarios**.
+Evaluated answer-key set:
 
-### CERT interpretation
+- **70 malicious scenarios**
 
-Only **3 / 70** scenarios matched our current removable-media evidence contract.
+Only **3/70** matched the project's current removable-media evidence contract.
 
-~~~text
+```
 3 / 70 = 4.29%
-~~~
+```
 
-This is **compatibility coverage, NOT detector recall**.
+**This is compatibility/coverage, NOT detector recall.**
 
-All 3 compatible cases completed the required ordered chain.
+All 3 compatible cases completed the required ordered evidence chain.
 
-### Why this matters
+### What models are used?
 
-We refuse to report a misleading recall number when the dataset contains attack types outside our current evidence contract.
+**Core detector:** deterministic evidence reasoning — no black-box ML required.
+
+**Behavior layer:** deterministic baselines and bounded scoring.
+
+**Threat intelligence:** MITRE ATT&CK.
+
+**AI layer:** optional grounded LLM investigator after deterministic validation.
+
+### Why this model strategy?
+
+Security decisions need:
+
+- reproducibility
+- exact evidence attribution
+- auditability
+- predictable failure modes
+- protection against hallucinated evidence
 
 ---
 
-# SLIDE 6 — CORE ALGORITHM / HOW IT WORKS
+# SLIDE 6 — HOW THE SYSTEM WORKS
 
-## From Raw Logs to a Proven Incident
+## From Raw Logs to a Proven Campaign
 
 ### Step 1 — Normalize
 
-Different log formats become:
+All adapters produce a common `SecurityEvent`:
 
-~~~text
-SecurityEvent
-├── timestamp
-├── user
-├── device
-├── src_ip
-├── dst_ip
-├── event_type
-├── action
-├── resource
-├── session
-└── metadata
-~~~
+```
+event_id
+timestamp
+user
+device
+src_ip / dst_ip
+event_type
+action
+resource
+session
+metadata
+```
 
 ### Step 2 — Resolve entities
 
-The system correlates:
+We correlate:
 
-- User
-- Device
+- user
+- device
 - IP
-- Session
-- Resource
-- Process
+- session
+- resource
+- process/application
 
-**IP alone is never treated as identity.**
+**IP address alone is never treated as identity.**
 
 ### Step 3 — Generate behavior signals
 
 Examples:
 
-- unusual login time
+- unknown source
 - unknown device
-- unusual source
-- abnormal event frequency
+- unusual hour
 - unusual application
+- abnormal event frequency
 
-Behavior contributes evidence but cannot bypass the incident gate.
+These are supporting signals, not incident proof.
 
-### Step 4 — Identify attack stages
+### Step 4 — Identify stages
 
-Mandatory stages:
-
-~~~text
+```
 Identity / Initial Access
-        ↓
+          ↓
 Sensitive Data Access
-        ↓
+          ↓
 Collection / Exfiltration
-~~~
+```
 
-### Step 5 — Validate temporal order
+### Step 5 — Validate time
 
-A valid chain requires:
+A valid causal path must satisfy:
 
-~~~text
-Identity timestamp
-≤
-Sensitive-data timestamp
-≤
-Exfiltration timestamp
-~~~
+```
+Identity time
+    ≤
+Sensitive-data time
+    ≤
+Exfiltration time
+```
 
 Input order is not trusted.
 
-### Step 6 — Validate entity consistency
+### Step 6 — Validate entities
 
-Mandatory evidence must belong to a coherent user/device context.
+Events must belong to a coherent user/device/session context.
 
-Cross-user contamination causes the system to fail closed.
+Cross-user contamination can force a **fail-closed** decision.
 
-### Step 7 — Reconstruct
+### Step 7 — Reconstruct the campaign
 
-The reconstructor stores:
+The system records:
 
-- selected evidence IDs
-- rejected decoys
+- selected event IDs
+- rejected/decoy event IDs
 - stage relationships
 - temporal validity
 - entity consistency
 - reconstruction score
 - edge reasons
+- conflicts
 
 ### Step 8 — Decide
 
-~~~text
-Complete + valid evidence
+```
+Complete + coherent
         ↓
 VALIDATED INCIDENT
 
@@ -418,93 +436,119 @@ Incomplete but coherent
         ↓
 CAMPAIGN HYPOTHESIS
 
-Contradictory / unsupported
+Unsupported / contradictory
         ↓
-SUPPRESSED
-~~~
+SILENT
+```
 
 ---
 
-# SLIDE 7 — AI, ATT&CK & EXPLAINABILITY
+# SLIDE 7 — OUR NOVELTY
 
-## AI Works on Top of Evidence
+## What Is Actually Novel About Our Approach?
 
-### Deterministic security gate
+> **Our novelty is not “we use AI.” Our novelty is how evidence, uncertainty, identity, time and AI are controlled together.**
 
-The detector decides whether an incident exists using:
+### 01 — Evidence-First Incident Gating
 
-- required stages
-- exact event evidence
-- temporal validity
-- entity consistency
-- authorization checks
-- reconstruction validity
-- contradiction checks
+An anomaly never directly becomes an incident.
 
-### MITRE ATT&CK
+A validated incident requires independent evidence across mandatory attack stages.
 
-ATT&CK is used for **enrichment**, not incident creation.
+### 02 — Explicit Incomplete-Campaign Hypotheses
 
-~~~text
-Evidence
-   ↓
-Validated behavior
-   ↓
-ATT&CK mapping
-   ↓
-Threat context
-~~~
+When telemetry is missing, the system does not force a binary attack/benign decision.
 
-### Grounded LLM Investigator
+It produces:
 
-Only after deterministic validation:
+```
+Observed stages
++ Missing stage
++ Evidence IDs
++ Confidence
++ Reason
+```
 
-~~~text
-Validated Incident
-      ↓
-Sealed Evidence Packet
-      ↓
-LLM Investigator
-      ↓
-Explanation
-      ↓
-Event-ID Grounding Check
-~~~
+**Hypothesis ≠ Incident.**
 
-### Security boundaries
+### 03 — Deterministic Causal Reconstruction
 
-The LLM:
+We do not merely find matching events.
 
-- cannot create incidents
-- cannot create evidence
-- cannot override deterministic validation
-- cannot treat log text as instructions
-- must cite exact evidence IDs
-- fails closed when grounding fails
+We reconstruct:
 
-### Explainability output
+- which events were selected
+- which were rejected as decoys
+- why stages are connected
+- temporal relationships
+- entity relationships
 
-Every validated campaign can show:
+### 04 — Cross-Identity Protection
 
-**What?** — attack stage
+The system explicitly protects against:
 
-**When?** — timestamped evidence
+- shared IPs
+- shared devices
+- multiple users
+- identity-stage swaps
+- cross-campaign contamination
 
-**Who?** — user/entity
+When attribution becomes unsafe, we **fail closed**.
 
-**Where?** — device/network context
+### 05 — Bounded Adaptive Temporal Reasoning
 
-**Why connected?** — causal relationship
+We rejected the naive solution of simply making the global time window huge.
 
-**Why not benign?** — contradiction/authorization checks
+Instead:
 
-**What next?** — response recommendation
+```
+Normal window
+     +
+stronger identity/session continuity
+     +
+ordered-stage validation
+     ↓
+bounded drift tolerance
+```
+
+This supports slow attacks without opening the detector to look-elsewhere false positives.
+
+### 06 — LLM as Investigator, Not Judge
+
+The LLM cannot:
+
+- create an incident
+- invent evidence
+- override deterministic validation
+- treat logs as instructions
+
+It receives a sealed evidence packet and explains validated evidence.
+
+### 07 — Adversarial Self-Validation
+
+We deliberately attack our own detector using:
+
+- decoys
+- missing telemetry
+- clock drift
+- slow attacks
+- shared identities
+- simultaneous campaigns
+- benign lookalikes
+- large benign haystacks
+- reversed input order
+
+> **The detector must survive attacks from the attacker and from our own test suite.**
+
+### One-line novelty
+
+> **“We do not treat anomalies as incidents; we prove incidents by reconstructing an evidence-backed, entity-consistent and temporally valid attack chain.”**
 
 ---
 
-# SLIDE 8 — VALIDATION, RESULTS & NOVELTY
+# SLIDE 8 — VALIDATION + AI/ATT&CK + IMPACT
 
-## We Attacked Our Own Detector
+## We Did Not Stop at a Demo — We Attacked the Detector
 
 ### Phase 11 — Adversarial benchmark
 
@@ -512,9 +556,7 @@ Every validated campaign can show:
 
 Included:
 
-- baseline attacks
-- noisy attacks
-- slow attacks
+- baseline / noisy / slow attacks
 - clock drift
 - duplicate events
 - decoys
@@ -527,398 +569,237 @@ Included:
 - identity-stage swaps
 - 5,000-event benign haystacks
 
-Results:
+### Results
 
-| Metric | Result |
+| Gate | Result |
 |---|---:|
 | Validated-incident precision | **100%** |
 | Benign validated FPR | **0%** |
 | Campaign coverage recall | **100%** |
 | Campaign coverage FPR | **0%** |
 
-### Phase 12 — Confidence & drift
-
-Validated:
-
-- slow/long-spacing attack handling
-- benign false-positive protection
-- confidence separation for incomplete evidence
-
-A naive global 90-minute window caused false positives and was rejected.
-
 ### Phase 13 — Generalization
 
-Unseen/transformed cases included:
+Unseen/transformed attacks included:
 
-- rotated structure
+- rotated attack structure
 - interleaved benign activity
-- decoy-heavy attack
+- decoy-heavy attacks
 - missing device telemetry
+- different entity combinations
 - simultaneous campaigns
 - benign lookalikes
 - large haystacks
 
-Gate:
+**Malicious validated recall: 100%**
 
-- malicious validated recall: **100%**
-- benign validated FPR: **0%**
+**Benign validated FPR: 0%**
 
 ### Phase 14 — Robustness
 
-Stress included:
+Stress tested with:
 
-- **20,000 benign events + attack**
+- **20,000 benign events + real attack**
 - **20,000 benign events only**
 - duplicate attack events
 - reversed input order
 
 Final robustness gate passed.
 
-### Novelty
+### ATT&CK enrichment
 
-1. Evidence-first incident gating
-2. Explicit incomplete-campaign hypotheses
-3. Deterministic causal reconstruction
-4. Cross-identity protection
-5. Bounded adaptive temporal reasoning
-6. LLM as investigator, not judge
-7. Adversarial self-validation
+Demonstrated mappings:
+
+- **T1078 — Valid Accounts**
+- **T1005 — Data from Local System**
+- **T1052.001 — Exfiltration over USB**
+
+ATT&CK explains validated behavior; it does not create incidents.
+
+### AI boundary
+
+```
+Deterministic Evidence
+        ↓
+Validated Incident
+        ↓
+Sealed Evidence Packet
+        ↓
+Grounded LLM
+        ↓
+Human-readable Investigation
+```
+
+### Expected operational impact
+
+```
+Massive telemetry
+      ↓
+Fewer unsupported alerts
+      ↓
+Evidence-backed incidents
+      ↓
+Faster analyst triage
+      ↓
+Better explainability
+```
 
 ---
 
 # SLIDE 9 — BUSINESS MODEL CANVAS
 
-## Business Model Canvas — AI Cyber Threat Intelligence Platform
+## AI Cyber Threat Intelligence Platform
 
-**Business model positioning:**
+**Positioning:** B2B cybersecurity intelligence and incident-reconstruction platform for organizations that need high-confidence, explainable threat detection without overwhelming SOC analysts.
 
-> **A B2B cybersecurity intelligence and incident-reconstruction platform for organizations that need high-confidence, explainable threat detection without overwhelming SOC analysts with false alerts.**
-
----
-
-## 1 — CUSTOMER SEGMENTS
-
-### Primary
+### 1 — CUSTOMER SEGMENTS
 
 - Enterprise SOC teams
-- Security Operations Centers
-- Financial institutions
-- Healthcare organizations
-- Government / public-sector organizations
-- Critical infrastructure operators
-- Large technology companies
-
-### Secondary
-
+- BFSI / financial institutions
+- Healthcare
+- Government
+- Critical infrastructure
+- Technology companies
 - MSSPs / MDR providers
-- Managed security teams
-- Security consultants
-- Universities and research institutions
-- Mid-sized organizations without mature SOC infrastructure
+- Security consulting teams
 
-### Buyer personas
+**Buyers:** CISO, SOC Manager, Threat Hunter, Incident Responder, Security Engineer.
 
-- CISO
-- SOC Manager
-- Security Engineer
-- Threat Hunter
-- Incident Responder
-- Security Operations Analyst
+### 2 — VALUE PROPOSITION
 
----
-
-## 2 — VALUE PROPOSITION
-
-### Primary value
-
-**Reduce false-positive alert fatigue while preserving high-confidence attack detection.**
-
-### What we provide
-
-- Evidence-backed incidents
-- Multi-stage attack reconstruction
-- Exact evidence IDs
+- High-confidence multi-stage attack reconstruction
+- Fewer false-positive investigations
+- Exact evidence-backed incidents
 - Explainable timelines
 - Entity-aware correlation
 - Missing-evidence hypotheses
-- Benign suppression
 - MITRE ATT&CK context
 - Grounded AI investigation
 - Faster analyst triage
 
-### Business outcome
-
-~~~text
-Millions of events
-       ↓
-Fewer high-confidence investigations
-       ↓
-Less analyst time wasted
-       ↓
-Faster incident response
-       ↓
-Lower security-operation cost
-~~~
-
----
-
-## 3 — CHANNELS
-
-### Direct
+### 3 — CHANNELS
 
 - Enterprise sales
 - Security-team pilots
 - Proof-of-concept deployments
-- SIH / hackathon demonstration
-- Cybersecurity conferences
+- SIH / cybersecurity demonstrations
+- GitHub / developer community
+- SIEM / EDR integrations
+- MSSP partnerships
 
-### Technical
-
-- GitHub
-- Developer documentation
-- API integrations
-- SIEM integrations
-- EDR integrations
-
-### Partner
-
-- MSSPs
-- MDR providers
-- Cloud/security consultants
-- Enterprise IT vendors
-
----
-
-## 4 — CUSTOMER RELATIONSHIPS
-
-### Enterprise
-
-- Dedicated onboarding
-- Security architecture consultation
-- Integration support
-- SLA-backed support
-- Continuous threat-rule updates
-
-### Product
+### 4 — CUSTOMER RELATIONSHIP
 
 - Self-service dashboard
-- Documentation
-- API
-- Automated reports
-- Incident investigation workspace
+- API + documentation
+- Enterprise onboarding
+- Integration support
+- SLA-backed support
+- Custom threat-model configuration
+- Continuous security updates
 
-### Long-term
+### 5 — REVENUE STREAMS
 
-- Threat-model customization
-- Organization-specific baselines
-- Custom evidence contracts
-- Analyst feedback loops
+- SaaS subscription
+- Event-volume / endpoint-based pricing
+- Enterprise licensing
+- Private deployment
+- MSSP / MDR multi-tenant licensing
+- Professional integration services
 
----
+### 6 — KEY RESOURCES
 
-## 5 — REVENUE STREAMS
-
-### SaaS subscription
-
-Tiered pricing based on:
-
-- event volume
-- endpoints
-- analysts
-- retention
-- integrations
-
-### Enterprise licensing
-
-For large organizations requiring:
-
-- private deployment
-- dedicated infrastructure
-- custom integrations
-- advanced support
-
-### MSSP / MDR licensing
-
-Multi-tenant pricing for managed security providers.
-
-### Professional services
-
-- deployment
-- SIEM integration
-- detection engineering
-- threat-model customization
-- SOC workflow integration
-
----
-
-## 6 — KEY RESOURCES
-
-### Technology
-
-- Correlation engine
-- Evidence graph/reconstruction engine
-- Detection rules
-- Entity-resolution logic
+- Detection/correlation engine
+- Evidence reconstruction engine
+- Security telemetry
+- Threat intelligence
 - ATT&CK knowledge base
 - Grounded AI investigator
+- Security engineering team
+- Cloud/event-processing infrastructure
 
-### Data
+### 7 — KEY ACTIVITIES
 
-- Security telemetry
-- Public validation datasets
-- Threat intelligence
-- Organization-specific baselines
-
-### Human resources
-
-- Security researchers
-- Detection engineers
-- ML/AI engineers
-- Backend engineers
-- SOC analysts
-
-### Infrastructure
-
-- Event processing
-- Storage
-- Search/indexing
-- Model/LLM infrastructure
-- Monitoring
-
----
-
-## 7 — KEY ACTIVITIES
-
-- Security-log ingestion
-- Event normalization
+- Log ingestion
+- Normalization
 - Detection engineering
+- Entity resolution
 - Attack reconstruction
 - Threat-intelligence enrichment
-- Entity resolution
-- False-positive reduction
-- Benchmarking
 - Threat hunting
-- Model/LLM grounding
-- Continuous regression testing
-- SOC workflow integration
+- Adversarial testing
+- SOC integration
+- Continuous regression
 
-### Core operational loop
-
-~~~text
-BUILD
- ↓
-TEST
- ↓
-BREAK
- ↓
-FIX
- ↓
-REGRESSION
- ↓
-GATE
-~~~
-
----
-
-## 8 — KEY PARTNERS
-
-### Security ecosystem
+### 8 — KEY PARTNERS
 
 - SIEM providers
 - EDR/XDR providers
 - Cloud-security platforms
 - Threat-intelligence providers
-- Identity/security vendors
-
-### Data / research
-
-- CERT / SEI-style research datasets
-- MITRE ATT&CK ecosystem
-- Security research communities
-- Universities
-
-### Commercial
-
-- MSSPs
-- MDR providers
-- Cybersecurity consultants
+- MSSPs / MDR providers
+- Security consultants
+- Universities / research ecosystem
 - Enterprise technology integrators
 
----
-
-## 9 — COST STRUCTURE
-
-### Technology costs
+### 9 — COST STRUCTURE
 
 - Cloud compute
-- Event storage
-- Log indexing
+- Event storage and indexing
 - Database infrastructure
 - LLM/API usage
-- Monitoring
-
-### Engineering costs
-
-- Detection engineering
-- Backend/frontend development
+- Engineering
 - Security research
-- QA and adversarial testing
-
-### Operational costs
-
+- QA / adversarial testing
 - Customer support
-- Security operations
-- Compliance
-- Data acquisition
-- Infrastructure maintenance
+- Compliance and infrastructure maintenance
 
-### Cost optimization strategy
+### Business-model logic
 
-Deterministic correlation handles the security-critical path first.
+```
+Security telemetry
+      ↓
+Evidence reconstruction
+      ↓
+High-confidence incidents
+      ↓
+Lower analyst investigation cost
+      ↓
+Enterprise value
+      ↓
+SaaS / Enterprise / MSSP revenue
+```
 
-LLM usage is only applied where it adds analyst value.
+### Cost-control advantage
 
-~~~text
-All logs → deterministic processing
-                  ↓
-         High-value incidents
-                  ↓
-            LLM investigation
-~~~
+The expensive generative layer is **not** applied to every raw event.
 
-This reduces unnecessary model cost and limits AI attack surface.
+```
+All telemetry
+     ↓
+Deterministic processing
+     ↓
+High-value validated evidence
+     ↓
+LLM investigation only where useful
+```
 
----
-
-# BUSINESS MODEL SUMMARY
-
-| Canvas Block | Our Answer |
-|---|---|
-| Customer Segments | Enterprises, SOCs, BFSI, healthcare, government, critical infrastructure, MSSPs |
-| Value Proposition | High-confidence, explainable multi-stage attack reconstruction with fewer false positives |
-| Channels | Enterprise sales, pilots, SIH/demo, GitHub, integrations, MSSP partners |
-| Customer Relationships | Self-service + enterprise onboarding + continuous security support |
-| Revenue Streams | SaaS, enterprise licensing, MSSP licensing, professional services |
-| Key Resources | Detection engine, evidence graph, telemetry, ATT&CK, AI investigator, security team |
-| Key Activities | Detection, correlation, reconstruction, threat intelligence, testing, SOC integration |
-| Key Partners | SIEM/EDR/cloud vendors, MSSPs, research ecosystem, security integrators |
-| Cost Structure | Cloud, storage, engineering, LLM usage, support, security/compliance |
+This reduces AI cost and reduces the LLM attack surface.
 
 ---
 
-# FINAL PRESENTATION CLOSING
+# PRESENTATION CLOSING — USE AFTER SLIDE 9
 
 ## The Problem
 
 Security teams have too much telemetry and too many ambiguous alerts.
 
-## Our Answer
+## Our Solution
 
 We reconstruct attacks from evidence instead of treating anomalies as incidents.
 
-## Our Differentiator
+## Our Strongest Differentiator
 
-~~~text
+```
 Anomaly
    ↓
 Evidence
@@ -930,64 +811,46 @@ Causal Reconstruction
 Validated Campaign
    ↓
 Grounded AI Explanation
-~~~
+```
 
-## Final Pitch
+## Final 15-Second Pitch
 
-> **“We don't alert because one event looks suspicious. We prove an incident by reconstructing an evidence-backed, entity-consistent and temporally valid attack chain — and we show the exact evidence that proves it.”**
+> **“We don't alert because one event looks suspicious. We prove an incident by reconstructing an evidence-backed, entity-consistent and temporally valid attack chain. If evidence is missing, we show the uncertainty instead of inventing certainty.”**
 
 ---
 
-# SLIDE DESIGN GUIDANCE
+# SIH PRESENTATION DESIGN ORDER
 
-For the final PowerPoint/Canva deck, keep the visual structure close to the SIH style:
+| Slide | Purpose |
+|---|---|
+| 1 | Problem + solution identity |
+| 2 | Existing gap / why current approaches fail |
+| 3 | Proposed solution |
+| 4 | Architecture + technology stack |
+| 5 | Data sources + models |
+| 6 | How the algorithm works |
+| 7 | **NOVELTY — dedicated judge-facing slide** |
+| 8 | Validation + AI/ATT&CK + impact |
+| 9 | **Business Model Canvas** |
 
-### Slide 1
-Problem + project identity + one-line solution.
+### Important
 
-### Slide 2
-Problem weaknesses / why current approaches fail.
+The supplied Business Model Canvas reference image should be used for Slide 9 with the exact numbered block mapping:
 
-### Slide 3
-Proposed architecture.
-
-### Slide 4
-Technical stack and components.
-
-### Slide 5
-Datasets and data pipeline.
-
-### Slide 6
-Core algorithm / evidence reconstruction.
-
-### Slide 7
-AI + ATT&CK + explainability.
-
-### Slide 8
-Results + novelty.
-
-### Slide 9
-**Business Model Canvas** using the provided 9-block layout.
-
-For the Business Model slide, use the supplied orange/black canvas structure and place the nine numbered sections exactly as:
-
-~~~text
-             TOP
+```
 8 Key Partners | 7 Key Activities | 2 Value Proposition | 4 Customer Relationship | 1 Customer Segments
+6 Key Resources | 3 Channels
+9 Cost Structure | 5 Revenue Streams
+```
 
-             MIDDLE
-                 6 Key Resources                    | 3 Channels
-
-             BOTTOM
-9 Cost Structure                                    | 5 Revenue Streams
-~~~
-
-This preserves the numbering shown in the supplied reference image while adapting every block to the cyber-threat-intelligence product.
+The content above is written specifically for those nine blocks.
 
 ---
 
-# FINAL MESSAGE TO JUDGES
+# FINAL JUDGE MESSAGE
 
 > **Evidence first. Explanation second.**
 >
-> Our system is not another anomaly detector that turns every unusual event into an alert. It is an evidence-first cyber threat intelligence engine that reconstructs multi-stage campaigns, explicitly represents uncertainty, rejects identity and temporal contradictions, suppresses benign lookalikes, and uses AI only where it can remain grounded in validated evidence.
+> We built an evidence-first cyber threat intelligence engine that reconstructs multi-stage attacks from heterogeneous security telemetry, explicitly represents incomplete evidence, protects against identity and temporal stitching errors, suppresses benign lookalikes, and uses AI only on validated evidence.
+>
+> **We are not building another alert generator. We are building a system that can explain why an incident is actually proven.**
