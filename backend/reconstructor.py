@@ -5,7 +5,8 @@ from datetime import timedelta
 
 from .models import AttackReconstruction, ReconstructionEdge, SecurityEvent
 
-CHAIN_WINDOW = timedelta(minutes=30)\nDRIFT_RECONSTRUCTION_WINDOW = timedelta(minutes=90)
+CHAIN_WINDOW = timedelta(minutes=30)
+DRIFT_RECONSTRUCTION_WINDOW = timedelta(minutes=90)
 
 STAGE_IDENTITY = "Initial Access / Identity Anomaly"
 STAGE_SENSITIVE = "Sensitive Data Access"
