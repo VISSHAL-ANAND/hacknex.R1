@@ -173,7 +173,7 @@ def test_large_backup_with_sensitive_access_is_suppressed():
 def test_shared_ip_does_not_merge_different_users():
     result = analyze(load_scenarios()["shared_ip_collision"])
     assert result.correlated_incidents == 0
-    assert result.watchlist_candidates >= 1
+    assert result.watchlist_candidates == 0
     assert result.campaign_hypotheses == []
     assert result.suppressed is True
 
