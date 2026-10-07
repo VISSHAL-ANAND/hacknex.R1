@@ -313,7 +313,7 @@ def test_phase11_adversarial_benchmark():
     # where the current detector breaks.
     assert len(observations) == 26
     assert all(item["actual_disposition"] in {"validated", "hypothesis", "watchlist", "suppressed"} for item in observations)
-    assert all(item["passed_expected_disposition"] for item in observations), observations
+    mismatches = [item for item in observations if not item["passed_expected_disposition"]]\n    assert not mismatches, mismatches
     assert tp + fp + fn + tn == len(cases)
     assert campaign_recall >= 0.99
     assert campaign_fpr == 0.0
