@@ -249,6 +249,21 @@ def _build_graph(event_chain: list[SecurityEvent]) -> tuple[list[GraphNode], lis
     return list(nodes.values()), list(edges.values())
 
 
+def _stage_identity_consistent(stage_events: dict[str, list[SecurityEvent]]) -> bool:
+    """Require mandatory stages to belong to one coherent user/device context."""
+    stage_events_flat = [
+        event
+        for events_for_stage in stage_events.values()
+        for event in events_for_stage
+    ]
+    if not stage_events_flat:
+        return False
+
+    users = {event.user for event in stage_events_flat if event.user}
+    devices = {event.device for event in stage_events_flat if event.device}
+    return len(users) <= 1 and len(devices) <= 1
+
+
 def _entity_consistency(events: list[SecurityEvent]) -> float:
     if len(events) < 2:
         return 0.0
@@ -405,6 +420,7 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
                     for left, right in zip(first_stage_times, first_stage_times[1:])
                 )
                 partial_entity_score = _entity_consistency(partial_chain)
+                stage_identity_consistent = _stage_identity_consistent(stage_events)
                 missing_stage_supported = all(
                     _partial_hypothesis_is_supported(missing_stage, partial_chain, ordered)
                     for missing_stage in missing
@@ -421,6 +437,7 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
                 )
                 if (
                     partial_temporal_ok
+                    and stage_identity_consistent
                     and partial_entity_score >= 0.60
                     and partial_confidence >= 0.65
                     and missing_stage_supported
@@ -446,6 +463,11 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
                             ),
                         )
                     )
+            continue
+
+        if not _stage_identity_consistent(stage_events):
+            # A valid campaign must not be assembled by swapping users/devices
+            # between mandatory stages, even when the cluster shares one entity.
             continue
 
         chain = sorted(
