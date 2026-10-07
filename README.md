@@ -54,6 +54,11 @@ The LLM cannot create or validate an incident. Every validated stage must contai
 | Phase 8 | Public + raw CERT validation | ✅ Complete |
 | Phase 9 | Judge demo + CI hardening | ✅ Complete |
 | Phase 10 | Evidence-coverage hardening | ✅ Complete |
+| Phase 11 | Adversarial precision/coverage benchmark | ✅ Complete |
+| Phase 12 | Confidence calibration + drift robustness | ✅ Complete |
+| Phase 13 | Unseen/generalization benchmark | ✅ Complete |
+| Phase 14 | Final robustness stress | ✅ Complete |
+| Phase 15 | Final release/judge gate | ✅ Complete |
 
 ## Phase 2 — False-positive battle
 
@@ -208,7 +213,7 @@ docs/
   CERT raw acquisition/gate documentation
 
 .github/workflows/
-  phase2.yml ... phase10.yml
+  phase2.yml ... phase15.yml
   phase8-cert-raw.yml
 ```
 
