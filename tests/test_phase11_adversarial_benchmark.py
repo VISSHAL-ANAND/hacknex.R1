@@ -134,11 +134,19 @@ def test_phase11_adversarial_benchmark():
     cases = build_cases()
     observations = []
     tp = fp = fn = tn = 0
+    campaign_tp = campaign_fp = 0
 
     for name, events, malicious, expected in cases:
         result = analyze(events)
         actual = disposition(result)
         predicted_attack = actual == "validated"
+        predicted_campaign = actual in {"validated", "hypothesis"}
+
+        if malicious and predicted_campaign:
+            campaign_tp += 1
+        elif not malicious and predicted_campaign:
+            campaign_fp += 1
+
 
         if malicious and predicted_attack:
             tp += 1
@@ -166,6 +174,10 @@ def test_phase11_adversarial_benchmark():
     f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
     fpr = fp / (fp + tn) if fp + tn else 0.0
     fnr = fn / (fn + tp) if fn + tp else 0.0
+    malicious_cases = sum(1 for _, _, malicious, _ in cases if malicious)
+    benign_cases = sum(1 for _, _, malicious, _ in cases if not malicious)
+    campaign_recall = campaign_tp / malicious_cases if malicious_cases else 1.0
+    campaign_fpr = campaign_fp / benign_cases if benign_cases else 0.0
 
     report = {
         "experiment": "Phase 11 adversarial detection benchmark",
@@ -181,6 +193,8 @@ def test_phase11_adversarial_benchmark():
             "f1": round(f1, 4),
             "false_positive_rate": round(fpr, 4),
             "false_negative_rate": round(fnr, 4),
+            "campaign_coverage_recall": round(campaign_recall, 4),
+            "campaign_coverage_false_positive_rate": round(campaign_fpr, 4),
         },
         "observations": observations,
     }
@@ -195,3 +209,5 @@ def test_phase11_adversarial_benchmark():
     assert all(item["actual_disposition"] in {"validated", "hypothesis", "watchlist", "suppressed"} for item in observations)
     assert all(item["passed_expected_disposition"] for item in observations), observations
     assert tp + fp + fn + tn == len(cases)
+    assert campaign_recall >= 0.99
+    assert campaign_fpr == 0.0
