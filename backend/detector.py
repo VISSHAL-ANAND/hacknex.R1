@@ -203,6 +203,21 @@ def _cluster_identity_contaminated(cluster: list[SecurityEvent]) -> bool:
     return any(len(users) > 1 for users in users_by_device.values())
 
 
+def _cross_user_device_conflict(chain: list[SecurityEvent], all_events: list[SecurityEvent]) -> bool:
+    devices = {event.device for event in chain if event.device}
+    users = {event.user for event in chain if event.user}
+    if not devices:
+        return False
+    start = min(event.timestamp for event in chain)
+    end = max(event.timestamp for event in chain)
+    return any(
+        event.device in devices
+        and event.user
+        and event.user not in users
+        and start - CHAIN_WINDOW <= event.timestamp <= end + CHAIN_WINDOW
+        for event in all_events
+    )
+
 def _context_is_authorized(event: SecurityEvent) -> bool:
     return bool(
         event.metadata.get("approved_transfer")
@@ -504,6 +519,9 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
             }.values(),
             key=lambda e: e.timestamp,
         )
+
+        if _cross_user_device_conflict(chain, ordered):
+            continue
 
         first_stage_times = [
             min((e.timestamp for e in stage_events[name]), default=None)
