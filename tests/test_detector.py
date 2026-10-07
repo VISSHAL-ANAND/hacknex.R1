@@ -75,6 +75,7 @@ def test_reversed_attack_order_is_not_validated():
     result = analyze(load_scenarios()["reversed_order"])
     assert result.correlated_incidents == 0
     assert result.watchlist_candidates >= 1
+    assert result.campaign_hypotheses == []
     assert result.suppressed is True
 
 
@@ -82,6 +83,7 @@ def test_slow_attack_outside_window_is_not_validated():
     result = analyze(load_scenarios()["slow_attack"])
     assert result.correlated_incidents == 0
     assert result.watchlist_candidates == 1
+    assert result.campaign_hypotheses == []
     assert result.suppressed is True
 
 
@@ -110,7 +112,8 @@ def test_partial_chain_is_watchlisted_not_validated():
     result = analyze(events)
     assert result.correlated_incidents == 0
     assert result.watchlist_candidates == 1
-    assert result.suppressed is True
+    assert result.campaign_hypotheses
+    assert result.suppressed is False
 
 
 
@@ -171,6 +174,7 @@ def test_shared_ip_does_not_merge_different_users():
     result = analyze(load_scenarios()["shared_ip_collision"])
     assert result.correlated_incidents == 0
     assert result.watchlist_candidates >= 1
+    assert result.campaign_hypotheses == []
     assert result.suppressed is True
 
 

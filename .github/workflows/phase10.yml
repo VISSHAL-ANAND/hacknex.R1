@@ -1,0 +1,33 @@
+name: Phase 10 Evidence Coverage Baseline
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [phase10-evidence-coverage]
+
+jobs:
+  evidence-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run evidence coverage baseline
+        run: python -m pytest -q tests/test_phase10_evidence_coverage.py
+
+      - name: Run complete regression suite
+        run: python -m pytest -q
+
+      - name: Upload Phase 10 baseline
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase10-evidence-coverage-baseline
+          path: docs/results/phase10_evidence_coverage_baseline.json
