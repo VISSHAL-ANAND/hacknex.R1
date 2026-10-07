@@ -89,11 +89,35 @@ def _cluster(events: list[SecurityEvent]) -> list[list[SecurityEvent]]:
         for cluster in clusters:
             if event.timestamp - cluster[0].timestamp > DRIFT_CHAIN_WINDOW:
                 continue
-            if any(
-                event.timestamp >= existing.timestamp
-                and _identity_compatible(event, existing)
+
+            compatible_existing = [
+                existing
                 for existing in cluster
-            ):
+                if event.timestamp >= existing.timestamp
+                and _identity_compatible(event, existing)
+            ]
+            if not compatible_existing:
+                continue
+
+            # Normal correlation remains tight. Long/slow attacks are allowed
+            # only when the event has strong session identity continuity; this
+            # prevents a broad 90-minute look-elsewhere window from stitching
+            # unrelated benign activity into one campaign.
+            strong_drift_link = any(
+                existing.user
+                and event.user
+                and existing.user == event.user
+                and (
+                    (existing.device and event.device and existing.device == event.device)
+                    or (existing.session_id and event.session_id and existing.session_id == event.session_id)
+                )
+                for existing in compatible_existing
+            )
+            gap = event.timestamp - max(existing.timestamp for existing in compatible_existing)
+            if gap > CHAIN_WINDOW and not strong_drift_link:
+                continue
+
+            if gap <= CHAIN_WINDOW or strong_drift_link:
                 cluster.append(event)
                 placed = True
                 break
