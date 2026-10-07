@@ -578,22 +578,39 @@ Included:
 | Campaign coverage recall | **100%** |
 | Campaign coverage FPR | **0%** |
 
-### Phase 13 — Generalization
+### Phase 13 — Independent Generalization
 
-Unseen/transformed attacks included:
+We hardened Phase 13 so its primary score is **not derived from transformations of the known demo attack**.
 
-- rotated attack structure
-- interleaved benign activity
-- decoy-heavy attacks
-- missing device telemetry
-- different entity combinations
-- simultaneous campaigns
-- benign lookalikes
-- large haystacks
+The final benchmark uses independently constructed held-out in-contract campaigns:
 
-**Malicious validated recall: 100%**
+- independent removable-media campaign A
+- independent removable-media campaign B
+- independent slow/session-based campaign
+- independent decoy-heavy campaign
+- independent simultaneous campaigns
 
-**Benign validated FPR: 0%**
+Benign controls:
+
+- authorized transfer
+- benign sensitive-data access
+- shared-endpoint collision
+
+Separate boundary test:
+
+- network exfiltration, outside the declared removable-media evidence contract
+
+**5/5 independently constructed in-contract malicious campaigns validated**
+
+**Validated recall: 100%**
+
+**3/3 benign controls suppressed**
+
+**Validated FPR: 0%**
+
+The out-of-contract network-exfiltration case remained **non-validated** and produced only an incomplete hypothesis.
+
+> **Claim boundary:** 100% refers to the independently constructed synthetic attacks **within our declared evidence contract**, not arbitrary real-world unseen-attack recall.
 
 ### Phase 14 — Robustness
 
