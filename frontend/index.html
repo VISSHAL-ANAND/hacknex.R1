@@ -17,6 +17,8 @@
       <div class="controls">
         <button id="attackBtn" class="primary">Run Judge Demo</button>
         <button id="cleanBtn">Run Clean</button>
+        <button id="liveBtn">Live Replay</button>
+        <span id="liveStatus" class="pill">IDLE</span>
       </div>
     </header>
 
@@ -38,6 +40,11 @@
           <button id="scenarioBtn">Run Scenario</button>
         </div>
       </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><h2>Telemetry Stream</h2><div class="muted">Deterministic replay of the selected scenario. Simulation only — no synthetic incident is created.</div></div></div>
+      <div id="liveStream" class="timeline"><div class="empty">Press Live Replay to stream events.</div></div>
     </section>
 
     <section class="panel validation-panel">
