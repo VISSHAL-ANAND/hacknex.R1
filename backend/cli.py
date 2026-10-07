@@ -10,7 +10,6 @@ from typing import Any
 
 from .adapters import normalize_sysmon_event, normalize_windows_event, normalize_windows_event_xml, normalize_zeek_event
 from .detector import analyze
-from .enrichment import enrich_events
 from .models import SecurityEvent
 from .normalizer import normalize_events
 
@@ -122,7 +121,7 @@ def run_pipeline(path: str | Path, out_dir: str | Path, format_name: str = "auto
     output = Path(out_dir)
     output.mkdir(parents=True, exist_ok=True)
     normalized = parse_file(path, format_name)
-    enriched = enrich_events(normalized)
+    enriched = normalized
     analysis = analyze(normalized)
     _write_jsonl(output / "normalized.jsonl", normalized)
     _write_jsonl(output / "enriched.jsonl", enriched)
