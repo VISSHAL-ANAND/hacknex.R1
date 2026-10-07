@@ -14,6 +14,10 @@ const pill = document.getElementById("statusPill");
 const scenarioSelect = document.getElementById("scenarioSelect");
 const phase2Report = document.getElementById("phase2Report");
 const phase2Pill = document.getElementById("phase2Pill");
+const liveBtn = document.getElementById("liveBtn");
+const liveStatus = document.getElementById("liveStatus");
+const liveStream = document.getElementById("liveStream");
+let liveSocket = null;
 
 function esc(value) {
   return String(value ?? "").replace(/[&<>"]/g, c => ({
@@ -233,6 +237,56 @@ function render(data) {
   renderResponse(incident.recommended_actions);
 }
 
+function stopLiveReplay() {
+  if (liveSocket) {
+    liveSocket.close();
+    liveSocket = null;
+  }
+  liveBtn.textContent = "Live Replay";
+}
+
+function startLiveReplay() {
+  if (liveSocket) {
+    stopLiveReplay();
+    liveStatus.textContent = "IDLE";
+    return;
+  }
+  const scenario = scenarioSelect.value || "full_attack";
+  const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+  liveStream.innerHTML = "";
+  liveStatus.textContent = "STREAMING";
+  liveBtn.textContent = "Stop Replay";
+  liveSocket = new WebSocket(protocol + "//" + location.host + "/ws/simulate/" + encodeURIComponent(scenario) + "?delay=0.25");
+  liveSocket.onmessage = message => {
+    const payload = JSON.parse(message.data);
+    if (payload.type === "event") {
+      const e = payload.event;
+      const row = document.createElement("div");
+      row.className = "event";
+      row.innerHTML = '<div class="dot"></div><div><strong>' + esc(pretty(e.event_type)) + '</strong><div class="muted">' + esc(e.event_id) + ' · ' + esc(e.timestamp) + ' · ' + esc(e.source) + '</div></div>';
+      liveStream.appendChild(row);
+      render(payload.analysis);
+    }
+    if (payload.type === "complete") {
+      render(payload.analysis);
+      liveStatus.textContent = payload.analysis.correlated_incidents ? "INCIDENT VALIDATED" : "SUPPRESSED";
+      stopLiveReplay();
+    }
+    if (payload.type === "error") {
+      liveStatus.textContent = "ERROR";
+      stopLiveReplay();
+    }
+  };
+  liveSocket.onerror = () => {
+    liveStatus.textContent = "ERROR";
+    stopLiveReplay();
+  };
+  liveSocket.onclose = () => {
+    liveSocket = null;
+    if (liveBtn.textContent === "Stop Replay") stopLiveReplay();
+  };
+}
+
 async function load(path) {
   try {
     const res = await fetch(path);
@@ -280,6 +334,7 @@ async function loadScenarios() {
 document.getElementById("attackBtn").onclick = () => load("/api/demo/full_attack");
 document.getElementById("cleanBtn").onclick = () => load("/api/demo/clean");
 document.getElementById("scenarioBtn").onclick = () => load(`/api/demo/${encodeURIComponent(scenarioSelect.value)}`);
+liveBtn.onclick = startLiveReplay;
 
 loadScenarios();
 loadPhase2Report();

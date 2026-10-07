@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
+import xml.etree.ElementTree as ET
+from math import isfinite
 from pathlib import Path
+
+from fastapi import File, UploadFile, WebSocket, WebSocketDisconnect
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
@@ -15,6 +21,8 @@ from .reconstructor import reconstruct
 from .evaluator import run_phase2
 from .models import AnalysisResponse, BehaviorAnalysisResponse, BehaviorSignalResponse, InvestigationReport, InvestigationRequest, Phase2Report, SecurityEvent
 from .normalizer import normalize_events
+from .cli import parse_file
+from .realtime import simulate_event_stream
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "backend" / "data"
@@ -78,17 +86,112 @@ def demo_clean() -> AnalysisResponse:
     return analyze(load_events("clean_logs.json"))
 
 
+MAX_API_EVENTS_DEFAULT = 5000
+UPLOAD_MAX_BYTES_DEFAULT = 10 * 1024 * 1024
+ALLOWED_UPLOAD_SUFFIXES = {".json", ".jsonl", ".ndjson", ".csv", ".xml"}
+
+def _limit() -> int:
+    try:
+        value = int(os.getenv("HNX_MAX_API_EVENTS", str(MAX_API_EVENTS_DEFAULT)))
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail="invalid HNX_MAX_API_EVENTS") from exc
+    if value <= 0:
+        raise HTTPException(status_code=500, detail="HNX_MAX_API_EVENTS must be positive")
+    return value
+
+def _enforce_limit(events: list[object], endpoint: str) -> None:
+    limit = _limit()
+    if len(events) > limit:
+        raise HTTPException(status_code=413, detail=f"{endpoint} accepts at most {limit} events")
+
+def _upload_limit() -> int:
+    try:
+        value = int(os.getenv("HNX_UPLOAD_MAX_BYTES", str(UPLOAD_MAX_BYTES_DEFAULT)))
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail="invalid HNX_UPLOAD_MAX_BYTES") from exc
+    if value <= 0:
+        raise HTTPException(status_code=500, detail="HNX_UPLOAD_MAX_BYTES must be positive")
+    return value
+
 @app.post("/api/analyze", response_model=AnalysisResponse)
 def analyze_logs(events: list[SecurityEvent]) -> AnalysisResponse:
     if not events:
         raise HTTPException(status_code=400, detail="events must not be empty")
+    _enforce_limit(events, "/api/analyze")
     return analyze(events)
+
+@app.post("/api/analyze/upload", response_model=AnalysisResponse)
+async def analyze_upload(file: UploadFile = File(...), format_name: str = "auto") -> AnalysisResponse:
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="file must have a filename")
+    filename = Path(file.filename).name
+    suffix = Path(filename).suffix.lower()
+    if len(filename) > 255:
+        raise HTTPException(status_code=400, detail="filename is too long")
+    if format_name == "auto" and suffix not in ALLOWED_UPLOAD_SUFFIXES:
+        raise HTTPException(status_code=415, detail="unsupported upload extension")
+    temp_path = None
+    total = 0
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as handle:
+            temp_path = Path(handle.name)
+            while chunk := await file.read(1024 * 1024):
+                total += len(chunk)
+                if total > _upload_limit():
+                    raise HTTPException(status_code=413, detail="uploaded file exceeds configured limit")
+                handle.write(chunk)
+        events = parse_file(temp_path, format_name)
+        if not events:
+            raise HTTPException(status_code=400, detail="file contains no events")
+        _enforce_limit(events, "/api/analyze/upload")
+        return analyze(events)
+    except (OSError, ValueError, ET.ParseError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+
+@app.websocket("/ws/simulate/{scenario}")
+async def simulate_scenario(websocket: WebSocket, scenario: str) -> None:
+    await websocket.accept()
+    try:
+        available = load_scenarios()
+        if scenario not in available:
+            await websocket.send_json({"type": "error", "message": f"unknown scenario: {scenario}"})
+            return
+        try:
+            delay = float(websocket.query_params.get("delay", "0.5"))
+        except (TypeError, ValueError):
+            delay = 0.5
+        delay = max(0.0, min(delay, 10.0)) if isfinite(delay) else 0.5
+        accumulated = []
+        await websocket.send_json({"type": "start", "scenario": scenario, "mode": "simulation", "delay_seconds": delay})
+        async for event in simulate_event_stream(available[scenario], delay):
+            accumulated.append(event)
+            await websocket.send_json({
+                "type": "event",
+                "event": event.model_dump(mode="json"),
+                "analysis": analyze(accumulated).model_dump(mode="json"),
+            })
+        await websocket.send_json({
+            "type": "complete",
+            "scenario": scenario,
+            "analysis": analyze(accumulated).model_dump(mode="json"),
+        })
+    except WebSocketDisconnect:
+        return
+    except Exception as exc:
+        try:
+            await websocket.send_json({"type": "error", "message": str(exc)})
+        except Exception:
+            pass
 
 
 @app.post("/api/analyze/raw", response_model=AnalysisResponse)
 def analyze_raw_logs(events: list[dict]) -> AnalysisResponse:
     if not events:
         raise HTTPException(status_code=400, detail="events must not be empty")
+    _enforce_limit(events, "/api/analyze/raw")
     return analyze(normalize_events(events))
 
 
@@ -96,6 +199,7 @@ def analyze_raw_logs(events: list[dict]) -> AnalysisResponse:
 def analyze_windows(events: list[dict]) -> AnalysisResponse:
     if not events:
         raise HTTPException(status_code=400, detail="events must not be empty")
+    _enforce_limit(events, "/api/analyze/windows")
     normalized = [normalize_windows_event(event, index=i) for i, event in enumerate(events)]
     return analyze(normalized)
 
@@ -104,6 +208,7 @@ def analyze_windows(events: list[dict]) -> AnalysisResponse:
 def analyze_windows_xml(events: list[str]) -> AnalysisResponse:
     if not events:
         raise HTTPException(status_code=400, detail="events must not be empty")
+    _enforce_limit(events, "/api/analyze/windows/xml")
     normalized = [normalize_windows_event_xml(event, index=i) for i, event in enumerate(events)]
     return analyze(normalized)
 
@@ -112,6 +217,7 @@ def analyze_windows_xml(events: list[str]) -> AnalysisResponse:
 def analyze_sysmon(events: list[dict]) -> AnalysisResponse:
     if not events:
         raise HTTPException(status_code=400, detail="events must not be empty")
+    _enforce_limit(events, "/api/analyze/sysmon")
     normalized = [normalize_sysmon_event(event, index=i) for i, event in enumerate(events)]
     return analyze(normalized)
 
@@ -122,6 +228,7 @@ def analyze_zeek(payload: dict) -> AnalysisResponse:
     stream = str(payload.get("stream") or "conn")
     if not events:
         raise HTTPException(status_code=400, detail="events must not be empty")
+    _enforce_limit(events, "/api/analyze/zeek")
     normalized = [normalize_zeek_event(event, stream=stream, index=i) for i, event in enumerate(events)]
     return analyze(normalized)
 
