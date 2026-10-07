@@ -153,6 +153,12 @@ def _partial_hypothesis_is_supported(
     missing_candidates = [
         event for event in all_events if _stage_event_matches(missing_stage, event)
     ]
+    if not partial_chain:
+        return False
+
+    chain_start = min(event.timestamp for event in partial_chain)
+    chain_end = max(event.timestamp for event in partial_chain)
+
     for candidate in missing_candidates:
         for observed in partial_chain:
             shared = {
@@ -176,10 +182,25 @@ def _partial_hypothesis_is_supported(
             }
             if shared:
                 # If the missing stage exists for this identity context, do not
-                # manufacture an "unobserved" hypothesis. This preserves the
-                # fixed-window and entity-conflict safeguards.
+                # manufacture an "unobserved" hypothesis.
                 return False
+
+        # A conflicting stage inside the same reconstruction horizon is not
+        # missing telemetry. It is contradictory evidence belonging to another
+        # identity, so the partial hypothesis must remain silent.
+        if chain_start - CHAIN_WINDOW <= candidate.timestamp <= chain_end + CHAIN_WINDOW:
+            return False
+
     return True
+
+
+def _cluster_identity_contaminated(cluster: list[SecurityEvent]) -> bool:
+    """Reject clusters where a shared endpoint identity maps to multiple users."""
+    users_by_device: dict[str, set[str]] = defaultdict(set)
+    for event in cluster:
+        if event.device and event.user:
+            users_by_device[event.device].add(event.user)
+    return any(len(users) > 1 for users in users_by_device.values())
 
 
 def _context_is_authorized(event: SecurityEvent) -> bool:
@@ -310,6 +331,11 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
     evidence_events: set[str] = set()
 
     for cluster in clusters:
+        if _cluster_identity_contaminated(cluster):
+            # A shared device carrying multiple users cannot safely be treated
+            # as one campaign without stronger session-level attribution.
+            continue
+
         login = _find(
             cluster,
             lambda e: e.event_type == "login" and bool(e.metadata.get("unusual_ip")),
