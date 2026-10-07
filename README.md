@@ -56,7 +56,7 @@ The LLM cannot create or validate an incident. Every validated stage must contai
 | Phase 10 | Evidence-coverage hardening | ✅ Complete |
 | Phase 11 | Adversarial precision/coverage benchmark | ✅ Complete |
 | Phase 12 | Confidence calibration + drift robustness | ✅ Complete |
-| Phase 13 | Unseen/generalization benchmark | ✅ Complete |
+| Phase 13 | Generalization benchmark (transformations + independent campaigns) | ✅ Complete |
 | Phase 14 | Final robustness stress | ✅ Complete |
 | Phase 15 | Final release/judge gate | ✅ Complete |
 
@@ -182,6 +182,27 @@ Controlled single-stage ablation of the existing demo attack:
 The hardened implementation also refuses to manufacture partial hypotheses for slow-window violations or conflicting/shared-IP identity chains. The full regression suite remained green after the change.
 
 Research motivation: incomplete evidence, long/slow attacks, heterogeneous logs and false positives are established challenges in multi-step event-log correlation and attack reconstruction. The project addresses the recall pressure conservatively by surfacing uncertainty before the incident-validation boundary rather than lowering that boundary.
+
+
+
+## Phase 13 — Generalization with independent campaigns
+
+Phase 13 now separates two kinds of evidence instead of calling fixture mutations "unseen attacks":
+
+1. **Transformation suite** — timing, noise, decoy, telemetry and simultaneous-campaign perturbations of the established demo fixture.
+2. **Independent campaign suite** — four malicious and four benign campaigns authored directly from scratch, with new users, devices, IPs, applications, resources, telemetry sources, initial identity evidence, session identifiers and removable-media representations.
+
+The independent suite is the stronger synthetic generalization test. It does **not** clone or mutate `full_attack`.
+
+The gate requires:
+- transformation-suite validated recall = **100%**
+- transformation-suite validated FPR = **0%**
+- independent-suite validated recall = **100%**
+- independent-suite validated FPR = **0%**
+
+**Evaluation honesty:** these are controlled synthetic campaigns. A passing Phase 13 does **not** establish arbitrary real-world or "in-the-wild" attack recall. The repository reports this boundary explicitly rather than overstating the result.
+
+See `docs/PHASE13_GENERALIZATION.md` and `docs/results/phase13_generalization.json` for the experiment definition and generated measurements.
 
 ## Project structure
 
