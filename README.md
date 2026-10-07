@@ -53,6 +53,7 @@ The LLM cannot create or validate an incident. Every validated stage must contai
 | Phase 7 | Grounded LLM investigator | ✅ Complete |
 | Phase 8 | Public + raw CERT validation | ✅ Complete |
 | Phase 9 | Judge demo + CI hardening | ✅ Complete |
+| Phase 10 | Evidence-coverage hardening | ✅ Complete |
 
 ## Phase 2 — False-positive battle
 
@@ -140,6 +141,43 @@ The Phase 9 CI gate verifies frontend JavaScript syntax, the full-attack judge c
 
 Phase 9 hardening was merged after the relevant Phase 2–8 and Phase 9 checks passed.
 
+## Phase 10 — Evidence-coverage hardening
+
+The Phase 10 experiment measured the effect of missing one mandatory stage from the known full attack. The original hard gate correctly refused to validate incomplete chains, but it exposed no explicit campaign hypothesis.
+
+The hardened pipeline now separates **campaign hypothesis** from **validated incident**:
+
+```
+Partial evidence → Campaign Hypothesis → Analyst/watchlist
+Complete evidence + deterministic validation → Validated Incident
+```
+
+A CampaignHypothesis contains:
+- confidence
+- observed stages
+- missing stages
+- exact evidence event IDs
+- temporal validity
+- entity-consistency score
+- an explicit statement that it is **not** a validated incident
+
+The final incident gate remains strict: incomplete chains cannot become validated incidents.
+
+### Phase 10 baseline
+
+Controlled single-stage ablation of the existing demo attack:
+
+| Input | Original disposition | Hardened output |
+|---|---|---|
+| Complete attack | Validated | Validated incident |
+| Missing identity evidence | Watchlist | 2-stage campaign hypothesis |
+| Missing sensitive-data evidence | Watchlist | 2-stage campaign hypothesis |
+| Missing exfiltration evidence | Watchlist | 2-stage campaign hypothesis |
+
+The hardened implementation also refuses to manufacture partial hypotheses for slow-window violations or conflicting/shared-IP identity chains. The full regression suite remained green after the change.
+
+Research motivation: incomplete evidence, long/slow attacks, heterogeneous logs and false positives are established challenges in multi-step event-log correlation and attack reconstruction. The project addresses the recall pressure conservatively by surfacing uncertainty before the incident-validation boundary rather than lowering that boundary.
+
 ## Project structure
 
 ```
@@ -162,6 +200,7 @@ scripts/
 
 tests/
   phase and regression tests
+  test_phase10_evidence_coverage.py
 
 docs/
   detection and phase specifications
@@ -169,7 +208,7 @@ docs/
   CERT raw acquisition/gate documentation
 
 .github/workflows/
-  phase2.yml ... phase9.yml
+  phase2.yml ... phase10.yml
   phase8-cert-raw.yml
 ```
 
@@ -208,6 +247,7 @@ Open `http://127.0.0.1:8000`.
 ```bash
 python -m pytest -q
 python -m pytest -q tests/test_phase9_judge_demo.py
+python -m pytest -q tests/test_phase10_evidence_coverage.py
 node --check frontend/app.js
 ```
 
