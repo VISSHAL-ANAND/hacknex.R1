@@ -193,4 +193,5 @@ def test_phase11_adversarial_benchmark():
     # where the current detector breaks.
     assert len(observations) == 15
     assert all(item["actual_disposition"] in {"validated", "hypothesis", "watchlist", "suppressed"} for item in observations)
+    assert all(item["passed_expected_disposition"] for item in observations), observations
     assert tp + fp + fn + tn == len(cases)
