@@ -13,6 +13,7 @@ from .models import (
     GraphEdge,
     GraphNode,
     Incident,
+    CampaignHypothesis,
     SecurityEvent,
 )
 
@@ -220,6 +221,7 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
     # headline suspicious count unless they cross the stronger signal threshold.
     candidates = [event for event, score in scored if score >= CANDIDATE_THRESHOLD]
     suspicious = [event for event, score in scored if score >= STRONG_SIGNAL_THRESHOLD]
+    campaign_hypotheses: list[CampaignHypothesis] = []
 
     if not candidates:
         return AnalysisResponse(
@@ -229,6 +231,7 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
             suppressed_events=len(ordered),
             correlated_incidents=0,
             incidents=[],
+            campaign_hypotheses=[],
             suppressed=True,
         )
 
@@ -331,6 +334,48 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
         if len(stages) < 3:
             if len(stages) >= 2:
                 watchlist += 1
+                partial_chain = sorted(
+                    {
+                        event.event_id: event
+                        for events_for_stage in stage_events.values()
+                        for event in events_for_stage
+                    }.values(),
+                    key=lambda e: e.timestamp,
+                )
+                first_stage_times = [
+                    min((e.timestamp for e in stage_events[name]), default=None)
+                    for name in REQUIRED_STAGES
+                    if stage_events[name]
+                ]
+                partial_temporal_ok = first_stage_times == sorted(first_stage_times)
+                partial_entity_score = _entity_consistency(partial_chain)
+                stage_quality = sum(stage.confidence for stage in stages) / len(stages)
+                partial_confidence = round(
+                    min(
+                        0.95,
+                        0.45 * stage_quality
+                        + 0.25 * (1.0 if partial_temporal_ok else 0.0)
+                        + 0.30 * partial_entity_score,
+                    ),
+                    2,
+                )
+                if partial_temporal_ok and partial_entity_score >= 0.60 and partial_confidence >= 0.65:
+                    campaign_hypotheses.append(
+                        CampaignHypothesis(
+                            hypothesis_id=f"HYP-{partial_chain[0].event_id}",
+                            confidence=partial_confidence,
+                            observed_stages=[stage.stage for stage in stages],
+                            missing_stages=missing,
+                            evidence_event_ids=[event.event_id for event in partial_chain],
+                            temporal_valid=True,
+                            entity_consistency_score=round(partial_entity_score, 2),
+                            reason=(
+                                "Incomplete multi-stage attack hypothesis: observed evidence is temporally "
+                                "ordered and entity-consistent, but mandatory stage evidence is missing. "
+                                "This hypothesis is not a validated incident."
+                            ),
+                        )
+                    )
             continue
 
         chain = sorted(
@@ -474,6 +519,7 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
         suppressed_events=max(0, len(candidates) - len(evidence_events)),
         correlated_incidents=len(incidents),
         incidents=incidents,
+        campaign_hypotheses=campaign_hypotheses,
         suppressed=len(incidents) == 0,
     )
 
