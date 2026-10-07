@@ -128,6 +128,18 @@ def noisy_benign_backup(base):
         events.append(SecurityEvent(event_id=f"BACKUP-NOISE-{i}", timestamp=base[0].timestamp + timedelta(minutes=i + 1), event_type="process_start", user="backup-admin", device="BACKUP-01", src_ip="10.0.0.20", application="BackupAgent", source="endpoint", severity="info", metadata={"scheduled": True}))
     return events
 
+
+def large_benign_stream(base, count=5000):
+    events = clone(base)
+    from datetime import timedelta
+    start = base[0].timestamp - timedelta(hours=8)
+    for i in range(count):
+        events.append(SecurityEvent(event_id=f"HAYSTACK-{i}", timestamp=start + timedelta(seconds=i * 5), event_type="process_start" if i % 3 else "network_connection", user=f"service-{i % 17}", device=f"HOST-{i % 31}", src_ip=f"10.20.{i % 20}.{(i % 200) + 1}", application="scheduled-service", source="endpoint", severity="info", metadata={"scheduled": True, "benign_fixture": True}))
+    return events
+
+def benign_only_haystack(count=5000):
+    return large_benign_stream([SecurityEvent(event_id="HAYSTACK-SEED", timestamp=__import__("datetime").datetime(2026, 1, 1, tzinfo=__import__("datetime").timezone.utc), event_type="process_start", user="service-0", device="HOST-0", src_ip="10.20.0.1", application="scheduled-service", source="endpoint", severity="info", metadata={})], count=count)
+
 def build_cases():
     scenarios = load_scenarios()
     attack = scenarios["full_attack"]
@@ -152,6 +164,8 @@ def build_cases():
         ("duplicate_attack", duplicate_attack(attack), True, "validated"),
         ("cross_user_decoy_attack", cross_user_decoy_attack(attack), True, "validated"),
         ("noisy_benign_backup", noisy_benign_backup(scenarios["benign_backup"]), False, "suppressed"),
+        ("large_benign_haystack_attack", large_benign_stream(attack), True, "validated"),
+        ("large_benign_haystack_only", benign_only_haystack(), False, "suppressed"),
     ]
     return cases
 
@@ -241,7 +255,7 @@ def test_phase11_adversarial_benchmark():
     # deterministic and produce one of the defined dispositions. Quality
     # thresholds are intentionally NOT asserted yet; the first run measures
     # where the current detector breaks.
-    assert len(observations) == 20
+    assert len(observations) == 22
     assert all(item["actual_disposition"] in {"validated", "hypothesis", "watchlist", "suppressed"} for item in observations)
     assert all(item["passed_expected_disposition"] for item in observations), observations
     assert tp + fp + fn + tn == len(cases)
