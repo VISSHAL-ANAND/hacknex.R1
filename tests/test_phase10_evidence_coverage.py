@@ -83,3 +83,45 @@ def test_phase10_evidence_coverage_baseline():
 
     for name in ("missing_identity", "missing_sensitive", "missing_exfil"):
         assert observations[name]["disposition"] != "validated", name
+
+
+def test_phase10_partial_chain_hypotheses_cover_single_stage_loss():
+    events = load_full_attack()
+    expected_missing = {
+        "missing_identity": {"Initial Access / Identity Anomaly"},
+        "missing_sensitive": {"Sensitive Data Access"},
+        "missing_exfil": {"Collection / Exfiltration"},
+    }
+
+    for name, missing in expected_missing.items():
+        result = analyze(without_stage(events, {
+            "missing_identity": "identity",
+            "missing_sensitive": "sensitive",
+            "missing_exfil": "exfil",
+        }[name]))
+
+        assert result.correlated_incidents == 0, name
+        assert result.campaign_hypotheses, name
+        hypothesis = result.campaign_hypotheses[0]
+        assert set(hypothesis.missing_stages) == missing
+        assert len(hypothesis.observed_stages) == 2
+        assert hypothesis.evidence_event_ids
+        assert hypothesis.temporal_valid is True
+        assert hypothesis.entity_consistency_score >= 0.60
+        assert hypothesis.confidence >= 0.65
+        assert result.suppressed is False, name
+
+
+def test_phase10_complete_attack_remains_incident_only():
+    result = analyze(load_full_attack())
+    assert result.correlated_incidents == 1
+    assert result.campaign_hypotheses == []
+    assert result.suppressed is False
+
+
+def test_phase10_hypothesis_does_not_change_incident_gate():
+    events = load_full_attack()
+    result = analyze(without_stage(events, "sensitive"))
+    assert result.correlated_incidents == 0
+    assert result.incidents == []
+    assert result.watchlist_candidates == 1
