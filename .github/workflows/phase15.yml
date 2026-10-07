@@ -1,0 +1,16 @@
+name: Phase 15 - Final Release Gate
+on:
+  pull_request:
+    paths: ["backend/**","frontend/**","tests/**","docs/**","README.md",".github/workflows/**"]
+  workflow_dispatch:
+jobs:
+  final-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q tests/test_phase11_adversarial_benchmark.py tests/test_phase12_confidence_drift.py tests/test_phase13_generalization_benchmark.py tests/test_phase14_final_robustness.py tests/test_phase15_final_release.py
+      - run: python -m pytest -q
+      - run: node --check frontend/app.js
