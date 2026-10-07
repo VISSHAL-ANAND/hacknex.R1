@@ -657,21 +657,35 @@ Measured gate:
 
 # 24. Generalization Testing
 
-Phase 13 included:
+Phase 13 was hardened to avoid circular evaluation from transforming the known demo fixture.
 
-- rotated attack structure
-- interleaved benign events
-- decoy-heavy attacks
-- missing device telemetry
-- different entity combinations
-- simultaneous campaigns
-- benign lookalikes
-- large benign haystacks
+The final benchmark uses **independently constructed held-out campaigns**, not copies or timing/field mutations of the canonical attack fixture.
+
+Independent in-contract malicious cases:
+
+- independent removable-media campaign A
+- independent removable-media campaign B
+- independent slow/session-based campaign
+- independent decoy-heavy campaign
+- independent simultaneous campaigns
+
+Benign controls:
+
+- independently constructed authorized transfer
+- benign sensitive-data access
+- shared-endpoint collision
+
+A separate **out-of-contract network-exfiltration** case verifies that the detector does not falsely claim coverage outside its declared removable-media evidence contract.
 
 Verified gate:
 
+- **5 / 5** independently constructed in-contract malicious campaigns validated
 - malicious validated recall: **100%**
+- **3 / 3** benign controls suppressed
 - benign validated FPR: **0%**
+- out-of-contract network exfiltration: **not validated**; represented only as an incomplete hypothesis
+
+> **Claim boundary:** 100% validated recall applies to the independently constructed **in-contract synthetic benchmark**. It is not a claim of 100% real-world unseen-attack recall.
 
 ---
 
