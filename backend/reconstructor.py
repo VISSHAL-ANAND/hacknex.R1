@@ -6,6 +6,7 @@ from datetime import timedelta
 from .models import AttackReconstruction, ReconstructionEdge, SecurityEvent
 
 CHAIN_WINDOW = timedelta(minutes=30)
+DRIFT_RECONSTRUCTION_WINDOW = timedelta(minutes=90)
 
 STAGE_IDENTITY = "Initial Access / Identity Anomaly"
 STAGE_SENSITIVE = "Sensitive Data Access"
@@ -68,11 +69,31 @@ def _edge_score(a: SecurityEvent, b: SecurityEvent) -> tuple[float, list[str]]:
         return 0.0, ["Target event occurs before source event."]
 
     gap = b.timestamp - a.timestamp
-    if gap > CHAIN_WINDOW:
+    if gap > DRIFT_RECONSTRUCTION_WINDOW:
         return 0.0, ["Events exceed the reconstruction window."]
 
     if not _compatible(a, b):
         return 0.0, ["User, device, or session contradiction blocks causal linkage."]
+
+    # Beyond the normal 30-minute correlation window, require strong session
+    # continuity. A large global window alone must never create a causal edge.
+    if gap > CHAIN_WINDOW:
+        strong_identity = (
+            bool(a.user and b.user and a.user == b.user)
+            and (
+                bool(a.device and b.device and a.device == b.device)
+                or bool(a.session_id and b.session_id and a.session_id == b.session_id)
+            )
+        )
+        resource_link = _resource_continuity(a, b)
+        behavior_link = max(
+            float(a.metadata.get("behavior_score", 0.0) or 0.0),
+            float(b.metadata.get("behavior_score", 0.0) or 0.0),
+        ) >= 0.50
+        if not strong_identity or not (resource_link or behavior_link):
+            return 0.0, [
+                "Long temporal gap requires strong identity plus independent continuity evidence."
+            ]
 
     score = 0.20
     reasons.append("Events are temporally ordered inside the reconstruction window.")
@@ -100,7 +121,7 @@ def _edge_score(a: SecurityEvent, b: SecurityEvent) -> tuple[float, list[str]]:
         score += 0.10
         reasons.append("Behavior baseline independently supports the transition.")
 
-    decay = max(0.0, 1.0 - (gap.total_seconds() / CHAIN_WINDOW.total_seconds()))
+    decay = max(0.0, 1.0 - (gap.total_seconds() / DRIFT_RECONSTRUCTION_WINDOW.total_seconds()))
     score += 0.10 * decay
     return round(min(1.0, score), 2), reasons
 

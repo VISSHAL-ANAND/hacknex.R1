@@ -18,6 +18,9 @@ from .models import (
 )
 
 CHAIN_WINDOW = timedelta(minutes=30)
+# Long/slow attacks need a bounded adaptive horizon, but this is deliberately
+# finite so the detector cannot correlate an entire day's telemetry.
+DRIFT_CHAIN_WINDOW = timedelta(minutes=90)
 CANDIDATE_THRESHOLD = 0.10
 STRONG_SIGNAL_THRESHOLD = 0.25
 REQUIRED_STAGES = (
@@ -71,13 +74,8 @@ def _event_score(event: SecurityEvent) -> float:
         elif copied_bytes >= 250_000_000:
             score += 0.20
 
-    # Behavior anomaly is supporting context, not campaign confidence.
-    # The maximum contribution is deliberately small so a single unusual
-    # event cannot become a validated incident by itself.
     behavior_score = float(event.metadata.get("behavior_score", 0.0) or 0.0)
     score += min(0.15, 0.15 * max(0.0, behavior_score))
-
-    # Severity is context, not the detector.
     score += {"critical": 0.05, "high": 0.04, "medium": 0.02}.get(event.severity, 0.0)
     return min(1.0, score)
 
@@ -89,13 +87,37 @@ def _cluster(events: list[SecurityEvent]) -> list[list[SecurityEvent]]:
     for event in events:
         placed = False
         for cluster in clusters:
-            if event.timestamp - cluster[0].timestamp > CHAIN_WINDOW:
+            if event.timestamp - cluster[0].timestamp > DRIFT_CHAIN_WINDOW:
                 continue
-            if any(
-                event.timestamp >= existing.timestamp
-                and _identity_compatible(event, existing)
+
+            compatible_existing = [
+                existing
                 for existing in cluster
-            ):
+                if event.timestamp >= existing.timestamp
+                and _identity_compatible(event, existing)
+            ]
+            if not compatible_existing:
+                continue
+
+            # Normal correlation remains tight. Long/slow attacks are allowed
+            # only when the event has strong session identity continuity; this
+            # prevents a broad 90-minute look-elsewhere window from stitching
+            # unrelated benign activity into one campaign.
+            strong_drift_link = any(
+                existing.user
+                and event.user
+                and existing.user == event.user
+                and (
+                    (existing.device and event.device and existing.device == event.device)
+                    or (existing.session_id and event.session_id and existing.session_id == event.session_id)
+                )
+                for existing in compatible_existing
+            )
+            gap = event.timestamp - max(existing.timestamp for existing in compatible_existing)
+            if gap > CHAIN_WINDOW and not strong_drift_link:
+                continue
+
+            if gap <= CHAIN_WINDOW or strong_drift_link:
                 cluster.append(event)
                 placed = True
                 break
@@ -104,7 +126,6 @@ def _cluster(events: list[SecurityEvent]) -> list[list[SecurityEvent]]:
             clusters.append([event])
 
     return [sorted(cluster, key=lambda e: e.timestamp) for cluster in clusters]
-
 
 def _find(cluster: list[SecurityEvent], predicate: Callable[[SecurityEvent], bool]) -> SecurityEvent | None:
     return next((e for e in cluster if predicate(e)), None)
@@ -318,6 +339,23 @@ def _entity_consistency(events: list[SecurityEvent]) -> float:
     return round(sum(scores) / len(scores), 2)
 
 
+def _ordered_stage_path(stage_events: dict[str, list[SecurityEvent]]) -> list[SecurityEvent]:
+    """Return one temporally ordered representative from each mandatory stage."""
+    first = sorted(stage_events[REQUIRED_STAGES[0]], key=lambda e: e.timestamp)
+    second = sorted(stage_events[REQUIRED_STAGES[1]], key=lambda e: e.timestamp)
+    third = sorted(stage_events[REQUIRED_STAGES[2]], key=lambda e: e.timestamp)
+
+    for identity_event in first:
+        for sensitive_event in second:
+            if sensitive_event.timestamp < identity_event.timestamp:
+                continue
+            for exfil_event in third:
+                if exfil_event.timestamp < sensitive_event.timestamp:
+                    continue
+                return [identity_event, sensitive_event, exfil_event]
+    return []
+
+
 def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
     ordered = sorted(events, key=lambda e: e.timestamp)
     scored = [(event, _event_score(event)) for event in ordered]
@@ -523,11 +561,8 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
         if _cross_user_device_conflict(chain, ordered):
             continue
 
-        first_stage_times = [
-            min((e.timestamp for e in stage_events[name]), default=None)
-            for name in REQUIRED_STAGES
-        ]
-        temporal_ok = all(t is not None for t in first_stage_times) and first_stage_times == sorted(first_stage_times)
+        ordered_stage_path = _ordered_stage_path(stage_events)
+        temporal_ok = len(ordered_stage_path) == len(REQUIRED_STAGES)
         temporal_score = 1.0 if temporal_ok else 0.35
 
         entity_score = _entity_consistency(chain)
