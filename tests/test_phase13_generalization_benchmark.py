@@ -311,7 +311,7 @@ def test_phase13_generalization_gate():
                 "malicious_cases": transformed_total,
                 "validated_recall": round(transformed_tp / transformed_total, 4),
                 "benign_cases": transformed_benign,
-                "validated_fpr": round(transformed_fp / transformed_benign, 4),
+                "validated_fpr": round(transformed_fp / transformed_benign, 4) if transformed_benign else 0.0,
             },
             "independent_campaign_suite": {
                 "malicious_cases": independent_total,
