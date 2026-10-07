@@ -387,7 +387,6 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
 
         if len(stages) < 3:
             if len(stages) >= 2:
-                watchlist += 1
                 partial_chain = sorted(
                     {
                         event.event_id: event
@@ -425,7 +424,12 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
                     and partial_entity_score >= 0.60
                     and partial_confidence >= 0.65
                     and missing_stage_supported
+                    and not (
+                        authorized_context >= 2
+                        and any(event.event_type in {"usb_mount", "file_copy"} for event in partial_chain)
+                    )
                 ):
+                    watchlist += 1
                     campaign_hypotheses.append(
                         CampaignHypothesis(
                             hypothesis_id=f"HYP-{partial_chain[0].event_id}",
@@ -491,7 +495,8 @@ def analyze(events: Iterable[SecurityEvent]) -> AnalysisResponse:
             or not reconstruction.selected_event_ids
             or reconstruction.reconstruction_score < 0.65
         ):
-            watchlist += 1
+            # Complete but contradictory chains are evidence failures, not weaker campaigns.
+            # Keep them silent rather than escalating known temporal/entity conflicts.
             continue
 
         evidence_events.update(e.event_id for e in chain)
