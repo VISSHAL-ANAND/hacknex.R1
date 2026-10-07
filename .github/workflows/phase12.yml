@@ -1,0 +1,25 @@
+name: Phase 12 - Confidence Calibration and Drift
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "tests/test_phase12_confidence_drift.py"
+      - ".github/workflows/phase12.yml"
+  workflow_dispatch:
+
+jobs:
+  confidence-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q tests/test_phase12_confidence_drift.py
+      - run: cat docs/results/phase12_confidence_drift_baseline.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase12-confidence-drift-baseline
+          path: docs/results/phase12_confidence_drift_baseline.json
