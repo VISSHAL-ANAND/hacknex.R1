@@ -51,7 +51,7 @@ def test_final_release_behavioral_contract():
     stress coverage remains owned by Phases 11–14.
     """
     full = analyze(_scenario("full_attack"))
-    clean = analyze(_scenario("clean_control"))
+    clean = analyze(_scenario("clean"))
     partial = analyze(_scenario("partial_attack"))
     mismatch = analyze(_scenario("mismatched_entities"))
     authorized = analyze(_scenario("authorized_transfer"))
